@@ -87,6 +87,8 @@ function VoiceLog({
   onExternalAiChangesApplied,
   highlightedField = "",
   onHighlightClear,
+
+  logs = [],
 }) {
   const t =
     TEXT[language];
@@ -993,6 +995,10 @@ function VoiceLog({
 
           onThemeChange={
             onThemeChange
+          }
+
+          logs={
+            logs
           }
         />
 

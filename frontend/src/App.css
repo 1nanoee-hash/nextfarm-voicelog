@@ -10448,3 +10448,575 @@ body.dark-mode
   font-weight: 700;
   color: inherit;
 }
+
+/* =========================================================
+   ACCOUNT CENTER — PROFILE / STATISTICS / HELP / LOGOUT
+========================================================= */
+
+.user-menu-chevron {
+  margin-left: auto;
+  color: #94a3b8;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.account-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 20px;
+
+  background: rgba(2, 6, 23, 0.58);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.account-modal,
+.logout-confirm-card {
+  width: min(100%, 560px);
+  max-height: min(760px, calc(100dvh - 40px));
+
+  overflow: auto;
+
+  border: 1px solid #dbe3ef;
+  border-radius: 24px;
+
+  background: #ffffff;
+  color: #0f172a;
+
+  box-shadow:
+    0 28px 80px rgba(15, 23, 42, 0.24),
+    0 8px 24px rgba(15, 23, 42, 0.12);
+}
+
+.account-modal-top {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+
+  display: grid;
+  grid-template-columns: 42px 1fr 42px;
+  align-items: center;
+  gap: 8px;
+
+  padding: 16px 18px;
+
+  border-bottom: 1px solid #e2e8f0;
+
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.account-modal-top h2 {
+  margin: 0;
+
+  color: #0f172a;
+
+  font-size: 19px;
+  text-align: center;
+}
+
+.account-back-btn,
+.account-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 40px;
+  height: 40px;
+
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+
+  background: #f8fafc;
+  color: #334155;
+
+  font-size: 20px;
+
+  cursor: pointer;
+}
+
+.account-panel-content {
+  padding: 22px;
+}
+
+.account-panel-content h4 {
+  margin: 24px 0 10px;
+
+  color: #64748b;
+
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.profile-hero-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+
+  padding: 18px;
+
+  border: 1px solid #bbf7d0;
+  border-radius: 20px;
+
+  background:
+    linear-gradient(
+      135deg,
+      rgba(34, 197, 94, 0.12),
+      rgba(16, 185, 129, 0.04)
+    );
+}
+
+.profile-large-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 64px;
+  height: 64px;
+
+  flex: 0 0 64px;
+
+  border-radius: 50%;
+
+  background: #dcfce7;
+
+  font-size: 30px;
+}
+
+.profile-hero-card h3 {
+  margin: 0 0 4px;
+
+  font-size: 21px;
+}
+
+.profile-hero-card p {
+  margin: 0;
+
+  color: #64748b;
+}
+
+.profile-info-list {
+  overflow: hidden;
+
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+}
+
+.profile-info-list > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+
+  padding: 14px 16px;
+
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.profile-info-list > div:last-child {
+  border-bottom: none;
+}
+
+.profile-info-list span {
+  color: #64748b;
+}
+
+.profile-info-list strong {
+  text-align: right;
+}
+
+.account-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.account-stat-grid.three {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.account-stat-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  min-width: 0;
+
+  padding: 16px;
+
+  border: 1px solid #dbeafe;
+  border-radius: 18px;
+
+  background: #f8fbff;
+}
+
+.account-stat-grid strong {
+  color: #16a34a;
+
+  font-size: 27px;
+}
+
+.account-stat-grid span {
+  color: #64748b;
+
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.recent-activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.recent-activity-item {
+  display: grid;
+  grid-template-columns: 42px 1fr 28px;
+  align-items: center;
+  gap: 10px;
+
+  padding: 12px;
+
+  border: 1px solid #e2e8f0;
+  border-radius: 15px;
+
+  background: #f8fafc;
+}
+
+.recent-activity-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 42px;
+  height: 42px;
+
+  border-radius: 13px;
+
+  background: #dcfce7;
+}
+
+.recent-activity-item > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+
+  min-width: 0;
+}
+
+.recent-activity-item strong {
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-activity-item div span {
+  color: #64748b;
+
+  font-size: 12px;
+}
+
+.activity-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 26px;
+  height: 26px;
+
+  border-radius: 50%;
+
+  background: #fef3c7;
+  color: #d97706;
+
+  font-weight: 900;
+}
+
+.activity-status.completed {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.account-empty-text {
+  margin: 0;
+
+  color: #64748b;
+}
+
+.help-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.help-guide-card {
+  display: grid;
+  grid-template-columns: 46px 1fr;
+  gap: 12px;
+
+  padding: 16px;
+
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+
+  background: #f8fafc;
+}
+
+.help-guide-card > span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 46px;
+  height: 46px;
+
+  border-radius: 14px;
+
+  background: #ecfdf5;
+
+  font-size: 23px;
+}
+
+.help-guide-card strong {
+  display: block;
+
+  margin-bottom: 5px;
+}
+
+.help-guide-card p {
+  margin: 0;
+
+  color: #64748b;
+
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.logout-confirm-card {
+  width: min(100%, 420px);
+
+  padding: 26px;
+
+  text-align: center;
+}
+
+.logout-confirm-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 62px;
+  height: 62px;
+
+  margin: 0 auto 14px;
+
+  border-radius: 18px;
+
+  background: #fef2f2;
+
+  font-size: 30px;
+}
+
+.logout-confirm-card h2 {
+  margin: 0 0 8px;
+
+  font-size: 21px;
+}
+
+.logout-confirm-card p {
+  margin: 0 0 22px;
+
+  color: #64748b;
+
+  line-height: 1.55;
+}
+
+.logout-confirm-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.logout-cancel-btn,
+.logout-danger-btn {
+  min-height: 46px;
+
+  border-radius: 13px;
+
+  font-size: 14px;
+  font-weight: 800;
+
+  cursor: pointer;
+}
+
+.logout-cancel-btn {
+  border: 1px solid #cbd5e1;
+
+  background: #ffffff;
+  color: #334155;
+}
+
+.logout-cancel-btn.full {
+  width: 100%;
+}
+
+.logout-danger-btn {
+  border: 1px solid #ef4444;
+
+  background: #ef4444;
+  color: #ffffff;
+}
+
+body.dark-mode .account-modal,
+body.dark-mode .logout-confirm-card {
+  border-color: #334155;
+
+  background: #0f172a;
+  color: #f8fafc;
+}
+
+body.dark-mode .account-modal-top {
+  border-color: #334155;
+
+  background: rgba(15, 23, 42, 0.95);
+}
+
+body.dark-mode .account-modal-top h2 {
+  color: #f8fafc;
+}
+
+body.dark-mode .account-back-btn,
+body.dark-mode .account-close-btn {
+  border-color: #334155;
+
+  background: #1e293b;
+  color: #e2e8f0;
+}
+
+body.dark-mode .profile-hero-card {
+  border-color: #166534;
+
+  background:
+    linear-gradient(
+      135deg,
+      rgba(34, 197, 94, 0.16),
+      rgba(15, 23, 42, 0.2)
+    );
+}
+
+body.dark-mode .profile-large-avatar {
+  background: #14532d;
+}
+
+body.dark-mode .profile-hero-card p,
+body.dark-mode .account-panel-content h4,
+body.dark-mode .profile-info-list span,
+body.dark-mode .account-stat-grid span,
+body.dark-mode .recent-activity-item div span,
+body.dark-mode .help-guide-card p,
+body.dark-mode .logout-confirm-card p {
+  color: #94a3b8;
+}
+
+body.dark-mode .profile-info-list,
+body.dark-mode .profile-info-list > div,
+body.dark-mode .account-stat-grid > div,
+body.dark-mode .recent-activity-item,
+body.dark-mode .help-guide-card {
+  border-color: #334155;
+}
+
+body.dark-mode .account-stat-grid > div,
+body.dark-mode .recent-activity-item,
+body.dark-mode .help-guide-card {
+  background: #111827;
+}
+
+body.dark-mode .help-guide-card > span,
+body.dark-mode .recent-activity-icon {
+  background: #14351f;
+}
+
+body.dark-mode .logout-cancel-btn {
+  border-color: #475569;
+
+  background: #1e293b;
+  color: #f8fafc;
+}
+
+@media (max-width: 767px) {
+  .account-modal-backdrop {
+    align-items: flex-end;
+
+    padding: 0;
+  }
+
+  .account-modal {
+    width: 100%;
+    max-height: min(86dvh, 760px);
+
+    border-right: none;
+    border-bottom: none;
+    border-left: none;
+    border-radius: 24px 24px 0 0;
+
+    padding-bottom:
+      env(safe-area-inset-bottom);
+  }
+
+  .logout-confirm-card {
+    width: calc(100% - 24px);
+
+    margin-bottom:
+      calc(
+        12px +
+          env(safe-area-inset-bottom)
+      );
+
+    border-radius: 22px;
+  }
+
+  .account-panel-content {
+    padding: 18px 16px 22px;
+  }
+
+  .account-stat-grid.three {
+    grid-template-columns:
+      repeat(3, minmax(0, 1fr));
+
+    gap: 8px;
+  }
+
+  .account-stat-grid > div {
+    padding: 13px 10px;
+  }
+
+  .account-stat-grid strong {
+    font-size: 23px;
+  }
+
+  .account-stat-grid span {
+    font-size: 11px;
+  }
+
+  .profile-info-list > div {
+    align-items: flex-start;
+  }
+
+  .user-menu {
+    width: min(
+      290px,
+      calc(100vw - 24px)
+    );
+  }
+}

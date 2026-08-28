@@ -568,6 +568,10 @@ function App() {
               ""
             )
           }
+
+          logs={
+            logs
+          }
         />
       )}
 

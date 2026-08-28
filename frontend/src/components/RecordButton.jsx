@@ -74,6 +74,14 @@ function RecordButton({
     setElapsedSeconds,
   ] = useState(0);
 
+  const elapsedSecondsRef =
+    useRef(0);
+
+  const [
+    isPreparing,
+    setIsPreparing,
+  ] = useState(false);
+
   const recorderRef =
     useRef(null);
 
@@ -156,9 +164,7 @@ function RecordButton({
       revokeOwnedAudioUrl();
 
       setAudioUrl?.(null);
-
       setAudioBlob?.(null);
-
       setTranscript?.("");
 
       setAiData?.({
@@ -178,7 +184,6 @@ function RecordButton({
       );
 
     clearTimer();
-
     cleanupStream();
 
     setIsRecording(
@@ -247,10 +252,15 @@ function RecordButton({
     async () => {
       if (
         isRecording ||
-        isConfirmed
+        isConfirmed ||
+        isPreparing
       ) {
         return;
       }
+
+      setIsPreparing(
+        true
+      );
 
       try {
         if (
@@ -289,12 +299,6 @@ function RecordButton({
                   stream
                 );
         } catch {
-          /*
-            Fallback:
-            để browser tự chọn
-            encoder mặc định.
-          */
-
           recorder =
             new MediaRecorder(
               stream
@@ -336,29 +340,22 @@ function RecordButton({
             );
           };
 
-        recorder.onstop =
-          () => {
-            setElapsedSeconds(
-              (seconds) => {
-                finishRecording(
-                  recorder,
-                  seconds
-                );
+        recorder.onstop = () => {
+          const recordedSeconds =
+            elapsedSecondsRef.current;
 
-                return seconds;
-              }
-            );
-          };
-
-        /*
-          Timeslice giúp browser
-          trả dữ liệu thành từng chunk,
-          ổn định hơn trên mobile.
-        */
+          finishRecording(
+            recorder,
+            recordedSeconds
+          );
+        };
 
         recorder.start(
           250
         );
+
+        elapsedSecondsRef.current =
+          0;
 
         setElapsedSeconds(
           0
@@ -373,12 +370,11 @@ function RecordButton({
         timerRef.current =
           window.setInterval(
             () => {
+              elapsedSecondsRef.current +=
+                1;
+
               setElapsedSeconds(
-                (
-                  previous
-                ) =>
-                  previous +
-                  1
+                elapsedSecondsRef.current
               );
             },
             1000
@@ -387,8 +383,8 @@ function RecordButton({
         showMessage(
           "success",
           isVietnamese
-            ? "🎙️ Đang ghi âm... Nhấn lại để dừng."
-            : "🎙️ Recording... Tap again to stop."
+            ? "🎙️ Đang ghi âm... Nhấn nút đỏ để dừng."
+            : "🎙️ Recording... Tap the red button to stop."
         );
       } catch (error) {
         console.error(
@@ -397,9 +393,7 @@ function RecordButton({
         );
 
         clearTimer();
-
         cleanupStream();
-
         releaseRecorder();
 
         setIsRecording(
@@ -412,6 +406,10 @@ function RecordButton({
             error,
             language
           )
+        );
+      } finally {
+        setIsPreparing(
+          false
         );
       }
     };
@@ -427,7 +425,6 @@ function RecordButton({
           "inactive"
       ) {
         clearTimer();
-
         cleanupStream();
 
         setIsRecording(
@@ -438,12 +435,6 @@ function RecordButton({
       }
 
       try {
-        /*
-          Xin chunk cuối trước
-          khi stop nếu browser
-          hỗ trợ.
-        */
-
         if (
           typeof recorder.requestData ===
           "function"
@@ -451,8 +442,7 @@ function RecordButton({
           try {
             recorder.requestData();
           } catch {
-            // Browser may reject
-            // requestData at this instant.
+            // Ignore.
           }
         }
 
@@ -464,9 +454,7 @@ function RecordButton({
         );
 
         clearTimer();
-
         cleanupStream();
-
         releaseRecorder();
 
         setIsRecording(
@@ -515,7 +503,6 @@ function RecordButton({
       }
 
       cleanupStream();
-
       revokeOwnedAudioUrl();
     };
   }, []);
@@ -525,70 +512,130 @@ function RecordButton({
       ? isVietnamese
         ? "Nhật ký đã được xác nhận"
         : "Log confirmed"
-      : isRecording
+      : isPreparing
         ? isVietnamese
-          ? "Nhấn để dừng"
-          : "Tap to stop"
-        : isVietnamese
-          ? "Nhấn để ghi âm"
-          : "Tap to record";
+          ? "Đang mở microphone..."
+          : "Preparing microphone..."
+        : isRecording
+          ? isVietnamese
+            ? "Nhấn để dừng"
+            : "Tap to stop"
+          : isVietnamese
+            ? "Nhấn để ghi âm"
+            : "Tap to record";
 
   return (
     <div className="record-section">
-      <button
-        type="button"
-        className={`record-btn ${
+      <div className="record-control-wrap">
+        <button
+          type="button"
+          className={`record-btn ${
+            isRecording
+              ? "recording"
+              : ""
+          } ${
+            isPreparing
+              ? "preparing"
+              : ""
+          }`}
+          onClick={
+            handleRecordClick
+          }
+          disabled={
+            isConfirmed ||
+            isPreparing
+          }
+          aria-pressed={
+            isRecording
+          }
+          aria-label={
+            buttonLabel
+          }
+        >
+          <span
+            className="record-btn-icon"
+            aria-hidden="true"
+          >
+            {isPreparing
+              ? "…"
+              : isRecording
+                ? "■"
+                : "🎙️"}
+          </span>
+        </button>
+
+        {isRecording && (
+          <span
+            className="record-live-dot"
+            aria-hidden="true"
+          />
+        )}
+      </div>
+
+      <div
+        className={`record-status ${
           isRecording
             ? "recording"
             : ""
         }`}
-        onClick={
-          handleRecordClick
-        }
-        disabled={
-          isConfirmed
-        }
-        aria-pressed={
-          isRecording
-        }
-        aria-label={
-          buttonLabel
-        }
-      >
-        {isRecording
-          ? "⏹️"
-          : "🎙️"}
-      </button>
-
-      <div
-        className="record-status"
         aria-live="polite"
       >
         {isRecording ? (
-          <span>
-            {isVietnamese
-              ? "Đang ghi"
-              : "Recording"}{" "}
+          <>
+            <span className="record-status-main">
+              {isVietnamese
+                ? "Đang ghi âm"
+                : "Recording"}
+            </span>
+
             <strong>
               {formatDuration(
                 elapsedSeconds
               )}
             </strong>
-          </span>
+          </>
         ) : (
-          <span>
-            {buttonLabel}
-          </span>
+          <>
+            <span className="record-status-main">
+              {buttonLabel}
+            </span>
+
+            {!isConfirmed &&
+              !isPreparing && (
+                <span className="record-status-sub">
+                  {isVietnamese
+                    ? "Chạm đúng nút micro để bắt đầu"
+                    : "Tap the microphone button to start"}
+                </span>
+              )}
+          </>
         )}
       </div>
 
       {audioUrl && (
         <div className="audio-player">
-          <h3>
-            {isVietnamese
-              ? "Bản ghi vừa tạo"
-              : "Latest recording"}
-          </h3>
+          <div className="audio-player-header">
+            <div>
+              <span className="audio-player-kicker">
+                {isVietnamese
+                  ? "BẢN GHI"
+                  : "RECORDING"}
+              </span>
+
+              <h3>
+                {isVietnamese
+                  ? "Bản ghi vừa tạo"
+                  : "Latest recording"}
+              </h3>
+            </div>
+
+            <span className="audio-ready-badge">
+              ✓{" "}
+              {isVietnamese
+                ? "Sẵn sàng"
+                : "Ready"}
+            </span>
+          </div>
 
           <audio
             controls
