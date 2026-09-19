@@ -143,6 +143,7 @@ function AIAssistant({
   const responseTimeoutRef = useRef(null);
   const statusResetTimeoutRef = useRef(null);
   const recognitionRef = useRef(null);
+  const voiceTranscriptRef = useRef("");
   const voiceResetTimeoutRef = useRef(null);
 
   const isVietnamese =
@@ -198,6 +199,8 @@ function AIAssistant({
       );
 
     if (!exists) {
+      // Intentional synchronization when the active conversation disappears.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveConversationId(
         conversations[0]?.id || ""
       );
@@ -222,7 +225,11 @@ function AIAssistant({
     ]);
 
   const messages =
-    activeConversation?.messages || [];
+    useMemo(
+      () =>
+        activeConversation?.messages || [],
+      [activeConversation]
+    );
 
   /* ===========================
      Persist conversations
@@ -272,6 +279,7 @@ function AIAssistant({
     });
   }, [messages, assistantStatus]);
 
+  /* eslint-disable react-hooks/exhaustive-deps -- cleanup intentionally reads latest mutable refs */
   useEffect(() => {
     return () => {
       if (responseTimeoutRef.current) {
@@ -301,8 +309,11 @@ function AIAssistant({
 
         recognitionRef.current = null;
       }
+
+      voiceTranscriptRef.current = "";
     };
   }, []);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   /* ===========================
      Close assistant on outside click / Esc
@@ -386,6 +397,8 @@ function AIAssistant({
         )
       );
 
+    // Intentional pruning when the available audit event set changes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedAuditIds(
       (previous) =>
         previous.filter(
@@ -1232,6 +1245,24 @@ function AIAssistant({
       return false;
     }
 
+    /*
+      Backend có thể trả:
+      - material_text
+      - materials.material_text
+
+      Ta chỉ lấy tên field cuối cùng để
+      frontend tương thích với cả hai.
+    */
+    const normalizedExpectedField =
+      String(expectedField)
+        .trim()
+        .split(".")
+        .pop();
+
+    /*
+      Query luôn được ưu tiên hơn
+      câu trả lời bổ sung VoiceLog.
+    */
     if (
       isQueryIntent(
         text
@@ -1240,8 +1271,13 @@ function AIAssistant({
       return false;
     }
 
+    /*
+      ==========================
+      Thời gian
+      ==========================
+    */
     if (
-      expectedField ===
+      normalizedExpectedField ===
       "time_text"
     ) {
       return /^(?:(?:lúc|thời\s+gian(?:\s+là)?|giờ(?:\s+là)?)\s+)?\d{1,2}(?:(?::|h)\d{1,2}|\s+giờ(?:\s+\d{1,2})?)?\s*$/i.test(
@@ -1249,58 +1285,142 @@ function AIAssistant({
       );
     }
 
+    /*
+      ==========================
+      Lô canh tác
+      ==========================
+    */
     if (
-      expectedField ===
+      normalizedExpectedField ===
       "lot_text"
     ) {
-      return /^(?:lô\s+)?[A-Za-z0-9_-]{1,20}$/i.test(
-        text
+      const normalizedText =
+        text.trim();
+
+      /*
+        Chấp nhận:
+        Lô A
+        lô B
+        A
+        B
+        LO_A
+
+        Không nhận:
+        1313
+        298
+      */
+      return /^(?:(?:lô|lo)[\s_-]*)?[A-Za-z][A-Za-z0-9_-]{0,19}$/i.test(
+        normalizedText
       );
     }
 
+    /*
+      ==========================
+      Số lượng
+      ==========================
+    */
     if (
-      expectedField ===
-      "materials.quantity"
+      normalizedExpectedField ===
+      "quantity"
     ) {
       return /^(?:số\s+lượng\s+)?\d+(?:[.,]\d+)?(?:\s*[^\d\s,;.]+)?\s*$/i.test(
         text
       );
     }
 
+    /*
+      ==========================
+      Đơn vị
+      ==========================
+    */
     if (
-      expectedField ===
-      "materials.unit_text"
+      normalizedExpectedField ===
+      "unit_text"
     ) {
+      const hasLetter =
+        /[A-Za-zÀ-ỹ]/.test(
+          text
+        );
+
+      const isOnlyNumber =
+        /^\d+(?:[.,]\d+)?$/.test(
+          text
+        );
+
       return (
         text.length <= 30 &&
+        hasLetter &&
+        !isOnlyNumber &&
         !/[?]/.test(text)
       );
     }
 
+    /*
+      ==========================
+      Vật tư
+      ==========================
+    */
     if (
-      expectedField ===
-      "materials.material_text"
+      normalizedExpectedField ===
+      "material_text"
     ) {
+      const hasLetter =
+        /[A-Za-zÀ-ỹ]/.test(
+          text
+        );
+
+      const isOnlyNumber =
+        /^\d+(?:[.,]\d+)?$/.test(
+          text
+        );
+
       return (
         text.length <= 80 &&
+        hasLetter &&
+        !isOnlyNumber &&
         !/[?]/.test(text)
       );
     }
 
+    /*
+      ==========================
+      Hoạt động / công việc
+      ==========================
+    */
     if (
-      expectedField ===
+      normalizedExpectedField ===
       "activity_text"
     ) {
       const normalizedText =
-        text.toLowerCase();
+        text
+          .toLowerCase()
+          .trim();
 
       const looksLikeQuery =
         /(?:nh\u1eadt k\u00fd|l\u1ecbch s\u1eed|cho t\u00f4i xem|tra c\u1ee9u|t\u00ecm|bao nhi\u00eau|m\u1ea5y l\u1ea7n|l\u00f4 n\u00e0o|ho\u1ea1t \u0111\u1ed9ng g\u00ec|c\u00f4ng vi\u1ec7c g\u00ec|h\u00f4m nay c\u00f3|h\u00f4m qua c\u00f3)/i.test(
           normalizedText
         );
 
+      const isOnlyNumber =
+        /^\d+(?:[.,]\d+)?$/.test(
+          normalizedText
+        );
+
+      const looksLikeTime =
+        /^\d{1,2}(?::\d{1,2}|h\d{0,2})?$/i.test(
+          normalizedText
+        );
+
+      const hasLetter =
+        /[A-Za-zÀ-ỹ]/.test(
+          text
+        );
+
       return (
         text.length <= 120 &&
+        hasLetter &&
+        !isOnlyNumber &&
+        !looksLikeTime &&
         !/[?]/.test(text) &&
         !looksLikeQuery
       );
@@ -1482,10 +1602,18 @@ function AIAssistant({
     }
 
     return replyInVietnamese
-      ? "Tôi đã nhận được câu hỏi của bạn. Hiện trợ lý đang chạy ở chế độ thử nghiệm frontend. Sau khi kết nối API, tôi sẽ có thể truy vấn dữ liệu NextFarm và trả lời chính xác hơn."
-      : "I received your question. The assistant is currently running in frontend test mode. After API integration, I will be able to query NextFarm data and provide more accurate answers.";
+      ? (
+          "Tôi có thể hỗ trợ tra cứu nhật ký canh tác, "
+          + "hoạt động theo lô, số lần thực hiện công việc, "
+          + "vật tư đã sử dụng hoặc hỗ trợ hoàn thiện nhật ký đang tạo. "
+          + "Ví dụ: “Hôm nay có hoạt động gì?” hoặc "
+          + "“Lô A bón phân bao nhiêu lần?”"
+        )
+      : (
+          "I can help query cultivation logs, activities by plot, "
+          + "activity counts, material usage, or complete the current farming log."
+        );
   };
-
   /* ===========================
      Conversation helpers
   =========================== */
@@ -1668,14 +1796,12 @@ function AIAssistant({
   };
 
   const startVoiceInput = () => {
-    if (
-      assistantStatus === "thinking" ||
-      isListening
-    ) {
-      if (isListening) {
-        stopVoiceInput();
-      }
+    if (assistantStatus === "thinking") {
+      return;
+    }
 
+    if (isListening) {
+      stopVoiceInput();
       return;
     }
 
@@ -1706,9 +1832,10 @@ function AIAssistant({
       isVietnamese
         ? "vi-VN"
         : "en-US";
-
     recognition.continuous = false;
     recognition.interimResults = true;
+
+    voiceTranscriptRef.current = "";
 
     recognition.onstart = () => {
       setIsListening(true);
@@ -1722,22 +1849,45 @@ function AIAssistant({
     };
 
     recognition.onresult = (event) => {
-      let transcript = "";
+      let finalTranscript =
+        voiceTranscriptRef.current;
+      let interimTranscript = "";
 
       for (
         let index = event.resultIndex;
         index < event.results.length;
         index += 1
       ) {
-        transcript +=
-          event.results[index][0]
-            .transcript;
+        const result =
+          event.results[index];
+
+        const transcript =
+          result?.[0]?.transcript?.trim() || "";
+
+        if (!transcript) {
+          continue;
+        }
+
+        if (result.isFinal) {
+          finalTranscript = `${finalTranscript} ${transcript}`.trim();
+        } else {
+          interimTranscript = `${interimTranscript} ${transcript}`.trim();
+        }
       }
 
-      if (transcript.trim()) {
-        setInputValue(
-          transcript.trim()
-        );
+      voiceTranscriptRef.current =
+        finalTranscript;
+
+      const preview = [
+        finalTranscript,
+        interimTranscript,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .trim();
+
+      if (preview) {
+        setInputValue(preview);
       }
     };
 
@@ -1748,6 +1898,11 @@ function AIAssistant({
       );
 
       setIsListening(false);
+
+      if (event.error === "aborted") {
+        return;
+      }
+
       setAssistantStatus("needsInput");
 
       const errorMessages = {
@@ -1779,6 +1934,21 @@ function AIAssistant({
       recognitionRef.current = null;
       setIsListening(false);
 
+      const transcript =
+        voiceTranscriptRef.current.trim();
+
+      voiceTranscriptRef.current = "";
+
+      if (transcript) {
+        setInputValue(transcript);
+
+        window.setTimeout(() => {
+          void sendMessage(transcript);
+        }, 0);
+
+        return;
+      }
+
       setAssistantStatus((current) =>
         current === "listening"
           ? "ready"
@@ -1805,6 +1975,7 @@ function AIAssistant({
       );
 
       recognitionRef.current = null;
+      voiceTranscriptRef.current = "";
       setIsListening(false);
       setAssistantStatus("needsInput");
 
@@ -1901,6 +2072,20 @@ function AIAssistant({
       const currentBotSession =
         await getCurrentBotSession();
 
+      console.log(
+        "VOICE BOT DEBUG",
+        {
+          status:
+            currentBotSession?.status,
+
+          expectedField:
+            currentBotSession?.expected_field,
+
+          collectedData:
+            currentBotSession?.collected_data,
+        }
+      );
+
       const isContextReply =
         currentBotSession?.status ===
           "collecting" &&
@@ -1930,6 +2115,17 @@ function AIAssistant({
           isContextReply,
         });
 
+      console.log(
+        "VOICE BOT ROUTING",
+        {
+          message:
+            cleanMessage,
+
+          isContextReply,
+
+          assistantIntent,
+        }
+      );
       const shouldUseContextMessage =
         assistantIntent ===
         ASSISTANT_INTENT
@@ -2038,6 +2234,58 @@ function AIAssistant({
             isVietnamese:
               replyInVietnamese,
           });
+
+        const botMessage = {
+          id: generateId(),
+          role: "assistant",
+          text: responseText,
+          createdAt:
+            new Date().toISOString(),
+        };
+
+        updateActiveConversation(
+          (conversation) => ({
+            ...conversation,
+            updatedAt:
+              new Date().toISOString(),
+            messages: [
+              ...conversation.messages,
+              botMessage,
+            ],
+          })
+        );
+
+        setAssistantStatus(
+          "complete"
+        );
+
+        statusResetTimeoutRef.current =
+          setTimeout(() => {
+            setAssistantStatus(
+              "ready"
+            );
+
+            statusResetTimeoutRef.current =
+              null;
+          }, 1400);
+
+        return;
+      }
+
+      /*
+        Tin nhắn GENERAL không thuộc quá trình
+        bổ sung dữ liệu VoiceLog.
+
+        Vì vậy không đồng bộ nó với Voice Bot session.
+      */
+      if (
+        assistantIntent ===
+        ASSISTANT_INTENT.GENERAL
+      ) {
+        const responseText =
+          getBotResponse(
+            cleanMessage
+          );
 
         const botMessage = {
           id: generateId(),
@@ -3569,4 +3817,4 @@ function ConversationItem({
   );
 }
 
-export default AIAssistant; 
+export default AIAssistant;
