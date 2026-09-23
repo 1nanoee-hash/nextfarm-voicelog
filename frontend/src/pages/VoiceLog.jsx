@@ -329,8 +329,12 @@ function VoiceLog({
   autoValidation = true,
 
   onAiDataChange,
+  onOperationStateChange,
+  onDynamicFormStateChange,
   externalAiChanges = null,
   onExternalAiChangesApplied,
+  externalDynamicForm = null,
+  onExternalDynamicFormApplied,
   highlightedField = "",
   onHighlightClear,
   logs = [],
@@ -511,6 +515,24 @@ function VoiceLog({
   ]);
 
   useEffect(() => {
+    onOperationStateChange?.(
+      operation
+    );
+  }, [
+    operation,
+    onOperationStateChange,
+  ]);
+
+  useEffect(() => {
+    onDynamicFormStateChange?.(
+      dynamicForm
+    );
+  }, [
+    dynamicForm,
+    onDynamicFormStateChange,
+  ]);
+
+  useEffect(() => {
     // Intentional reset when legacy AI form data changes.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setWarningAcknowledged(false);
@@ -660,6 +682,98 @@ function VoiceLog({
     autoValidation,
     isVietnamese,
     onExternalAiChangesApplied,
+  ]);
+
+  useEffect(() => {
+    if (
+      !externalDynamicForm ||
+      typeof externalDynamicForm !== "object"
+    ) {
+      return;
+    }
+
+    if (
+      externalDynamicForm.operation &&
+      externalDynamicForm.operation !==
+        operation
+    ) {
+      console.warn(
+        "Ignored Dynamic Form update for a different operation:",
+        {
+          currentOperation:
+            operation,
+          receivedOperation:
+            externalDynamicForm.operation,
+        }
+      );
+
+      onExternalDynamicFormApplied?.();
+      return;
+    }
+
+    // Intentional synchronization from AI Assistant
+    // into the shared Dynamic Form state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDynamicForm(
+      externalDynamicForm
+    );
+
+    /*
+      CREATE_WORK_LOG still keeps aiData as a
+      compatibility mirror for the legacy Work Log
+      UI and Integration flow.
+    */
+    if (
+      operation ===
+      "CREATE_WORK_LOG"
+    ) {
+      const fields =
+        externalDynamicForm.fields || {};
+
+      setAiData({
+        lot:
+          fields.plot_text ||
+          "",
+
+        work:
+          fields.activity_text ||
+          "",
+
+        materials:
+          normalizeMaterials(
+            fields.materials
+          ),
+
+        time:
+          fields.performed_time_text ||
+          "",
+      });
+    }
+
+    setIsConfirmed(false);
+    setWarningAcknowledged(false);
+    setDevWarning(null);
+    clearServerValidation();
+    setCurrentStep(3);
+
+    if (autoValidation) {
+      setHasAttemptedSubmit(true);
+    }
+
+    showMessage(
+      "success",
+      isVietnamese
+        ? "🤖 NextFarm AI đã cập nhật biểu mẫu."
+        : "🤖 NextFarm AI updated the dynamic form."
+    );
+
+    onExternalDynamicFormApplied?.();
+  }, [
+    externalDynamicForm,
+    operation,
+    autoValidation,
+    isVietnamese,
+    onExternalDynamicFormApplied,
   ]);
 
   useEffect(() => {
