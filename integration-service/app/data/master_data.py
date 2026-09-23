@@ -90,6 +90,16 @@ UNITS: list[MasterDataRecord] = [
         ],
     },
     {
+        "code": "TON",
+        "name": "Tấn",
+        "aliases": [
+            "tấn",
+            "tan",
+            "ton",
+            "tonne",
+        ],
+    },
+    {
         "code": "G",
         "name": "Gam",
         "aliases": [
