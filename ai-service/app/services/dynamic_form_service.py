@@ -401,41 +401,79 @@ def extract_dynamic_form(
         operation
     )
 
-    try:
-        response = client.models.generate_content(
-            model=settings.GEMINI_MODEL,
-            contents=prompt,
-            config={
-                "response_mime_type": "application/json",
-                "response_json_schema": gemini_schema,
-                "temperature": 0,
-            },
-        )
+    model_candidates = [
+        settings.GEMINI_MODEL,
+        getattr(
+            settings,
+            "GEMINI_FALLBACK_MODEL",
+            "",
+        ),
+    ]
 
-        if not response.text:
-            raise ValueError(
-                "Gemini returned no structured dynamic form data."
+    models = list(
+        dict.fromkeys(
+            model
+            for model in model_candidates
+            if model
+        )
+    )
+
+    last_api_error: APIError | None = None
+
+    for model in models:
+        try:
+            response = client.models.generate_content(
+                model=model,
+                contents=prompt,
+                config={
+                    "response_mime_type": "application/json",
+                    "response_json_schema": gemini_schema,
+                    "temperature": 0,
+                },
             )
 
-        data = json.loads(
-            response.text
-        )
+            if not response.text:
+                raise ValueError(
+                    "Gemini returned no structured dynamic form data."
+                )
 
-        data["contract_version"] = "3.1"
-
-        data = _normalize_missing_fields(
-            operation=operation,
-            data=data,
-        )
-
-        return response_model.model_validate(
-            data
-        )
-
-    except APIError as exc:
-        raise RuntimeError(
-            (
-                "Gemini API error while extracting "
-                f"dynamic form: {exc}"
+            data = json.loads(
+                response.text
             )
-        ) from exc
+
+            data["contract_version"] = "3.1"
+
+            data = _normalize_missing_fields(
+                operation=operation,
+                data=data,
+            )
+
+            return response_model.model_validate(
+                data
+            )
+
+        except APIError as exc:
+            last_api_error = exc
+            status_code = getattr(
+                exc,
+                "code",
+                None,
+            )
+
+            if status_code == 503:
+                continue
+
+            raise RuntimeError(
+                (
+                    "Gemini API error while extracting "
+                    f"dynamic form with model {model}: {exc}"
+                )
+            ) from exc
+
+    raise RuntimeError(
+        (
+            "Gemini API error while extracting dynamic form. "
+            f"All configured models were unavailable: {models}. "
+            f"Last error: {last_api_error}"
+        )
+    ) from last_api_error
