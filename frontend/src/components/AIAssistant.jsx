@@ -17,6 +17,10 @@ import {
 } from "../services/botService";
 
 import {
+  extractDynamicFormFromText,
+} from "../services/dynamicFormService";
+
+import {
   ASSISTANT_INTENT,
   isQueryIntent,
   routeAssistantIntent,
@@ -45,8 +49,12 @@ function createConversation(title = "") {
 
 function AIAssistant({
   language = "vi",
+  activePage = "create",
   aiData = {},
+  operation = null,
+  dynamicForm = null,
   onApplyAiChanges,
+  onApplyDynamicForm,
   onUndoAiChanges,
   aiAuditEvents = [],
   onDeleteAiAuditEvents,
@@ -449,6 +457,69 @@ function AIAssistant({
   const formatCurrentLogContext = (
     replyInVietnamese = isVietnamese
   ) => {
+    if (
+      operation &&
+      dynamicForm?.fields
+    ) {
+      const entries =
+        Object.entries(
+          dynamicForm.fields
+        ).filter(
+          ([, value]) => {
+            if (
+              value === null ||
+              value === undefined
+            ) {
+              return false;
+            }
+
+            if (
+              typeof value === "string"
+            ) {
+              return value.trim() !== "";
+            }
+
+            if (Array.isArray(value)) {
+              return value.length > 0;
+            }
+
+            return true;
+          }
+        );
+
+      if (entries.length > 0) {
+        const formatValue = (
+          value
+        ) => {
+          if (
+            value !== null &&
+            typeof value === "object"
+          ) {
+            return JSON.stringify(
+              value
+            );
+          }
+
+          return String(value);
+        };
+
+        const lines =
+          entries.map(
+            ([field, value]) =>
+              `• ${field}: ${formatValue(
+                value
+              )}`
+          );
+
+        return [
+          replyInVietnamese
+            ? `Biểu mẫu hiện tại (${operation}):`
+            : `Current form (${operation}):`,
+          ...lines,
+        ].join("\n");
+      }
+    }
+
     const context =
       getCurrentLogContext();
 
@@ -527,6 +598,162 @@ function AIAssistant({
         context.time
       )}`,
     ].join("\n");
+  };
+
+  const isCurrentFormReadRequest = (
+    message
+  ) => {
+    const normalized =
+      String(
+        message || ""
+      )
+        .toLowerCase()
+        .trim();
+
+    return (
+      normalized.includes(
+        "dữ liệu hiện tại"
+      ) ||
+      normalized.includes(
+        "nhật ký hiện tại"
+      ) ||
+      normalized.includes(
+        "form hiện tại"
+      ) ||
+      normalized.includes(
+        "biểu mẫu hiện tại"
+      ) ||
+      normalized.includes(
+        "đang có gì"
+      ) ||
+      normalized.includes(
+        "đã có gì"
+      ) ||
+      normalized.includes(
+        "đọc dữ liệu"
+      ) ||
+      normalized.includes(
+        "đọc thông tin hiện tại"
+      ) ||
+      normalized.includes(
+        "current log"
+      ) ||
+      normalized.includes(
+        "current form"
+      ) ||
+      normalized.includes(
+        "current data"
+      )
+    );
+  };
+
+  const isGeneralGreeting = (
+    message
+  ) => {
+    const normalized =
+      String(
+        message || ""
+      )
+        .toLowerCase()
+        .trim();
+
+    return /^(?:xin\s+chào|chào|hello|hi|hey|cảm\s+ơn|thank\s+you|thanks)[!.\s]*$/i.test(
+      normalized
+    );
+  };
+
+  const formatDynamicFormGuidance = (
+    nextDynamicForm,
+    replyInVietnamese = isVietnamese
+  ) => {
+    const warnings =
+      Array.isArray(
+        nextDynamicForm?.warnings
+      )
+        ? nextDynamicForm.warnings
+        : [];
+
+    const missingFields =
+      Array.isArray(
+        nextDynamicForm?.missing_fields
+      )
+        ? nextDynamicForm.missing_fields
+        : [];
+
+    const lines = [
+      replyInVietnamese
+        ? "✅ Tôi đã cập nhật biểu mẫu theo thông tin bạn vừa cung cấp."
+        : "✅ I updated the form with the information you just provided.",
+    ];
+
+    if (warnings.length > 0) {
+      lines.push(
+        "",
+        replyInVietnamese
+          ? "⚠️ Thông tin cần kiểm tra:"
+          : "⚠️ Information to review:"
+      );
+
+      warnings.forEach(
+        (warning) => {
+          const warningText =
+            typeof warning === "string"
+              ? warning
+              : warning?.message;
+
+          if (warningText) {
+            lines.push(
+              `• ${warningText}`
+            );
+          }
+        }
+      );
+    }
+
+    if (
+      nextDynamicForm?.next_question
+    ) {
+      lines.push(
+        "",
+        `🤖 ${nextDynamicForm.next_question}`
+      );
+
+      return lines.join("\n");
+    }
+
+    if (missingFields.length > 0) {
+      lines.push(
+        "",
+        replyInVietnamese
+          ? "🤖 Vẫn còn thông tin bắt buộc cần bổ sung trên biểu mẫu."
+          : "🤖 Some required form information is still missing."
+      );
+
+      return lines.join("\n");
+    }
+
+    if (
+      nextDynamicForm
+        ?.requires_confirmation
+    ) {
+      lines.push(
+        "",
+        replyInVietnamese
+          ? "Hãy kiểm tra các cảnh báo trên biểu mẫu trước khi xác nhận."
+          : "Review the form warnings before confirming."
+      );
+
+      return lines.join("\n");
+    }
+
+    lines.push(
+      "",
+      replyInVietnamese
+        ? "Biểu mẫu hiện đã đủ thông tin theo Dynamic Form V3.1. Hãy kiểm tra lại trước khi xác nhận và lưu."
+        : "The Dynamic Form V3.1 form is now complete. Review it before confirming and saving."
+    );
+
+    return lines.join("\n");
   };
 
   /* ===========================
@@ -2069,6 +2296,117 @@ function AIAssistant({
           ) ||
         isVietnamese;
 
+      const shouldUseDynamicFormWorkflow =
+        activePage === "create" &&
+        Boolean(
+          operation &&
+          dynamicForm &&
+          typeof dynamicForm ===
+            "object"
+        ) &&
+        !isQueryIntent(
+          cleanMessage
+        ) &&
+        !isCurrentFormReadRequest(
+          cleanMessage
+        ) &&
+        !isGeneralGreeting(
+          cleanMessage
+        );
+
+      if (
+        shouldUseDynamicFormWorkflow
+      ) {
+        const nextDynamicForm =
+          await extractDynamicFormFromText({
+            operation,
+            transcript:
+              cleanMessage,
+            currentFields:
+              dynamicForm?.fields || {},
+            context: {},
+          });
+
+        if (
+          nextDynamicForm?.operation &&
+          nextDynamicForm.operation !==
+            operation
+        ) {
+          throw new Error(
+            "Dynamic Form response operation does not match the selected operation."
+          );
+        }
+
+        onApplyDynamicForm?.(
+          nextDynamicForm
+        );
+
+        const responseText =
+          formatDynamicFormGuidance(
+            nextDynamicForm,
+            replyInVietnamese
+          );
+
+        const botMessage = {
+          id: generateId(),
+          role: "assistant",
+          text: responseText,
+          createdAt:
+            new Date().toISOString(),
+        };
+
+        updateActiveConversation(
+          (conversation) => ({
+            ...conversation,
+            updatedAt:
+              new Date().toISOString(),
+            messages: [
+              ...conversation.messages,
+              botMessage,
+            ],
+          })
+        );
+
+        const stillNeedsInput =
+          Boolean(
+            nextDynamicForm
+              ?.next_question
+          ) ||
+          (
+            Array.isArray(
+              nextDynamicForm
+                ?.missing_fields
+            ) &&
+            nextDynamicForm
+              .missing_fields
+              .length > 0
+          ) ||
+          Boolean(
+            nextDynamicForm
+              ?.requires_confirmation
+          );
+
+        setAssistantStatus(
+          stillNeedsInput
+            ? "needsInput"
+            : "complete"
+        );
+
+        if (!stillNeedsInput) {
+          statusResetTimeoutRef.current =
+            setTimeout(() => {
+              setAssistantStatus(
+                "ready"
+              );
+
+              statusResetTimeoutRef.current =
+                null;
+            }, 1400);
+        }
+
+        return;
+      }
+
       const currentBotSession =
         await getCurrentBotSession();
 
@@ -2114,7 +2452,7 @@ function AIAssistant({
 
           isContextReply,
         });
-
+        
       console.log(
         "VOICE BOT ROUTING",
         {
@@ -3817,4 +4155,4 @@ function ConversationItem({
   );
 }
 
-export default AIAssistant;
+export default AIAssistant; 
