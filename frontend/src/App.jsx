@@ -147,8 +147,23 @@ function App() {
   );
 
   const [
+    currentDynamicOperation,
+    setCurrentDynamicOperation,
+  ] = useState(null);
+
+  const [
+    currentDynamicForm,
+    setCurrentDynamicForm,
+  ] = useState(null);
+
+  const [
     pendingAiChanges,
     setPendingAiChanges,
+  ] = useState(null);
+
+  const [
+    pendingDynamicFormChange,
+    setPendingDynamicFormChange,
   ] = useState(null);
 
   const [
@@ -614,12 +629,30 @@ function App() {
             setCurrentVoiceLogData
           }
 
+          onOperationStateChange={
+            setCurrentDynamicOperation
+          }
+
+          onDynamicFormStateChange={
+            setCurrentDynamicForm
+          }
+
           externalAiChanges={
             pendingAiChanges
           }
 
           onExternalAiChangesApplied={
             handleAiChangesApplied
+          }
+
+          externalDynamicForm={
+            pendingDynamicFormChange
+          }
+
+          onExternalDynamicFormApplied={() =>
+            setPendingDynamicFormChange(
+              null
+            )
           }
 
           highlightedField={
@@ -692,8 +725,20 @@ function App() {
             currentVoiceLogData
           }
 
+          operation={
+            currentDynamicOperation
+          }
+
+          dynamicForm={
+            currentDynamicForm
+          }
+
           onApplyAiChanges={
             handleAiApplyChanges
+          }
+
+          onApplyDynamicForm={
+            setPendingDynamicFormChange
           }
 
           onUndoAiChanges={

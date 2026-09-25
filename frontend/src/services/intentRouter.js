@@ -126,6 +126,28 @@ export function isQueryIntent(
       message
     );
 
+  // Câu lệnh tạo/thêm dữ liệu workflow không được
+  // route nhầm sang query chỉ vì có từ "lô", "trồng", ...
+  const workflowPrefixes = [
+    "tạo ",
+    "thêm ",
+    "lập ",
+    "ghi ",
+    "create ",
+    "add ",
+  ];
+
+  if (
+    workflowPrefixes.some(
+      (prefix) =>
+        text.startsWith(
+          prefix
+        )
+    )
+  ) {
+    return false;
+  }
+
   const queryPatterns = [
     // Query cây trồng / trạng thái lô.
     /lô\s+.+\s+(?:trồng|đang trồng|có cây|tình trạng)/i,
@@ -140,9 +162,9 @@ export function isQueryIntent(
     // Query hoạt động / công việc / nhật ký theo ngày.
     /(?:hôm nay|hôm qua).*(?:hoạt động|công việc|nhật ký|đã làm|làm gì)/i,
 
-    // Giai doan 8:
-    // Query trong 7 ngay gan day.
-    /(?:7 ng\u00e0y g\u1ea7n \u0111\u00e2y|7 ng\u00e0y qua|trong 7 ng\u00e0y).*(?:ho\u1ea1t \u0111\u1ed9ng|c\u00f4ng vi\u1ec7c|nh\u1eadt k\u00fd|\u0111\u00e3 l\u00e0m|l\u00e0m g\u00ec)/i,
+    // Giai đoạn 8:
+    // Query trong 7 ngày gần đây.
+    /(?:7 ngày gần đây|7 ngày qua|trong 7 ngày).*(?:hoạt động|công việc|nhật ký|đã làm|làm gì)/i,
 
     // Nhật ký theo lô.
     /nhật ký.*\blô\s+[a-z0-9_-]+\b/i,
