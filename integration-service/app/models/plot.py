@@ -5,6 +5,7 @@ from datetime import datetime
 from sqlalchemy import (
     Boolean,
     DateTime,
+    JSON,
     String,
     UniqueConstraint,
     func,
@@ -62,6 +63,13 @@ class PlotModel(Base):
     boundary_required: Mapped[bool] = mapped_column(
         Boolean(),
         nullable=False,
+    )
+
+    geometry: Mapped[
+        dict | None
+    ] = mapped_column(
+        JSON(),
+        nullable=True,
     )
 
     owner_text: Mapped[str | None] = mapped_column(
