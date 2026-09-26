@@ -389,8 +389,8 @@ const DYNAMIC_OPERATION_SAVE_CONFIG = {
       "severity_text",
       "description",
       "note",
+      "photo",
     ],
-    blocksPhotoRequirement: true,
   },
 
   CREATE_HARVEST: {
@@ -402,8 +402,8 @@ const DYNAMIC_OPERATION_SAVE_CONFIG = {
       "unit_text",
       "harvest_date_text",
       "note",
+      "photo",
     ],
-    blocksPhotoRequirement: true,
   },
 };
 
@@ -443,15 +443,6 @@ export async function saveDynamicOperation(
   ) {
     throw new IntegrationServiceError(
       "Dynamic form fields are required."
-    );
-  }
-
-  if (
-    config.blocksPhotoRequirement &&
-    fields.photo_required === true
-  ) {
-    throw new IntegrationServiceError(
-      "Nghiệp vụ đang yêu cầu ảnh nhưng frontend chưa có payload/API tải ảnh tương ứng."
     );
   }
 

@@ -18,6 +18,7 @@ client = TestClient(app)
         ("activity", "cho bo an", "CHO_BO_AN"),
         ("unit", "kg", "KG"),
         ("unit", "ky", "KG"),
+        ("unit", "t\u1ea5n", "TON"),
         ("lot", "Lô A", "LO_A"),
         ("lot", "lo a", "LO_A"),
         ("lot", "khu vực b", "LO_B"),
