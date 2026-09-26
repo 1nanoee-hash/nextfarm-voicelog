@@ -1,5 +1,8 @@
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.routers.cultivation_logs import (
     router as cultivation_logs_router,
@@ -34,6 +37,18 @@ from app.routers.crop_types import (
 from app.routers.plots import (
     router as plots_router,
 )
+from app.routers.uploads import (
+    router as uploads_router,
+)
+
+
+UPLOAD_ROOT = Path("uploads")
+UPLOAD_ROOT.mkdir(
+    parents=True,
+    exist_ok=True,
+)
+
+
 app = FastAPI(
     title="NextFarm VoiceLog Integration Service",
     description=(
@@ -55,6 +70,15 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+
+app.mount(
+    "/uploads",
+    StaticFiles(
+        directory=str(UPLOAD_ROOT),
+    ),
+    name="uploads",
 )
 
 
@@ -88,3 +112,4 @@ app.include_router(harvests_router)
 app.include_router(seasons_router)
 app.include_router(crop_types_router)
 app.include_router(plots_router)
+app.include_router(uploads_router)

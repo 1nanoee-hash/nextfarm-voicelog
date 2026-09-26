@@ -251,3 +251,7 @@ ai-service/benchmark/results/predictions_with_prompt.jsonl
 # Local voice test files
 test_voice.wav
 test_voice_en.wav
+
+# Integration image uploads
+integration-service/uploads/*
+!integration-service/uploads/.gitkeep

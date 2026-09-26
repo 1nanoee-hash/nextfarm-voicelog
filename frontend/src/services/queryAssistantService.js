@@ -852,20 +852,45 @@ function asksCropByLot(
       message
     );
 
-  return (
+  const hasLot =
     /\blô\s+[a-z0-9_-]+\b/i.test(
       text
-    ) &&
-    (
-      text.includes(
-        "trồng"
-      ) ||
-      text.includes(
-        "cây gì"
-      ) ||
-      text.includes(
-        "crop"
-      )
+    );
+
+  if (!hasLot) {
+    return false;
+  }
+
+  const isHarvestCommand =
+    text.includes(
+      "thu hoạch"
+    ) ||
+    text.includes(
+      "harvest"
+    );
+
+  if (isHarvestCommand) {
+    return false;
+  }
+
+  return (
+    text.includes(
+      "cây gì"
+    ) ||
+    text.includes(
+      "trồng cây gì"
+    ) ||
+    text.includes(
+      "đang trồng gì"
+    ) ||
+    text.includes(
+      "đang trồng cây gì"
+    ) ||
+    text.includes(
+      "what crop"
+    ) ||
+    text.includes(
+      "which crop"
     )
   );
 }

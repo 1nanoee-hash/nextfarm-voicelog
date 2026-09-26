@@ -17,6 +17,9 @@ import DynamicForm from "../components/DynamicForm";
 
 import { uploadAudio } from "../services/audioService";
 import {
+  uploadPhoto,
+} from "../services/photoUploadService";
+import {
   resolveMasterData,
   validateCultivationLog,
   saveCultivationLog,
@@ -365,6 +368,16 @@ function VoiceLog({
     )
   );
 
+  const [
+    selectedPhotoFile,
+    setSelectedPhotoFile,
+  ] = useState(null);
+
+  const [
+    photoPreviewUrl,
+    setPhotoPreviewUrl,
+  ] = useState("");
+
   /* ===========================
      Audio
   =========================== */
@@ -530,6 +543,18 @@ function VoiceLog({
   }, [
     dynamicForm,
     onDynamicFormStateChange,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      if (photoPreviewUrl) {
+        URL.revokeObjectURL(
+          photoPreviewUrl
+        );
+      }
+    };
+  }, [
+    photoPreviewUrl,
   ]);
 
   useEffect(() => {
@@ -1627,6 +1652,16 @@ function VoiceLog({
         );
       }
 
+      if (photoPreviewUrl) {
+        URL.revokeObjectURL(
+          photoPreviewUrl
+        );
+      }
+
+      setPhotoPreviewUrl("");
+
+      setSelectedPhotoFile(null);
+
       setAudioUrl(null);
 
       setAudioBlob(null);
@@ -2084,13 +2119,17 @@ function VoiceLog({
               "CREATE_HARVEST"
           ) &&
           fields.photo_required ===
-            true
+            true &&
+          !selectedPhotoFile &&
+          !String(
+            fields.photo || ""
+          ).trim()
         ) {
           const photoError = {
             photo_required:
               isVietnamese
-                ? "Nghiệp vụ yêu cầu ảnh nhưng frontend hiện chưa có chức năng chọn/tải ảnh theo Contract V3.1."
-                : "This operation requires a photo, but the frontend does not yet support selecting/uploading one under Contract V3.1.",
+                ? "Nghiệp vụ này yêu cầu ảnh. Hãy chọn ảnh trước khi lưu."
+                : "This operation requires a photo. Select a photo before saving.",
           };
 
           setServerValidation({
@@ -2109,12 +2148,6 @@ function VoiceLog({
           );
 
           setCurrentStep(3);
-
-          focusFirstValidationIssue({
-            errors:
-              photoError,
-            warnings: {},
-          });
 
           return;
         }
@@ -2137,11 +2170,51 @@ function VoiceLog({
         );
 
         try {
+          const fieldsToSave = {
+            ...fields,
+          };
+
+          if (
+            (
+              operation ===
+                "CREATE_ISSUE_REPORT" ||
+              operation ===
+                "CREATE_HARVEST"
+            ) &&
+            selectedPhotoFile
+          ) {
+            showMessage(
+              "success",
+              isVietnamese
+                ? "Đang tải ảnh lên..."
+                : "Uploading photo..."
+            );
+
+            const uploadedPhoto =
+              await uploadPhoto(
+                selectedPhotoFile
+              );
+
+            fieldsToSave.photo =
+              uploadedPhoto.photo;
+
+            setDynamicForm(
+              (previous) => ({
+                ...previous,
+                fields: {
+                  ...previous.fields,
+                  photo:
+                    uploadedPhoto.photo,
+                },
+              })
+            );
+          }
+
           const savedOperation =
             await saveDynamicOperation(
               operation,
               recordId,
-              fields
+              fieldsToSave
             );
 
           setCurrentLogId(
@@ -3547,6 +3620,106 @@ function VoiceLog({
                   language
                 }
               />
+
+              {(
+                operation ===
+                  "CREATE_ISSUE_REPORT" ||
+                operation ===
+                  "CREATE_HARVEST"
+              ) && (
+                <div
+                  style={{
+                    marginTop: "16px",
+                    padding: "14px",
+                    border:
+                      "1px solid rgba(128, 128, 128, 0.25)",
+                    borderRadius: "10px",
+                  }}
+                >
+                  <label
+                    style={{
+                      display: "block",
+                      marginBottom: "8px",
+                      fontWeight: 600,
+                    }}
+                  >
+                    {isVietnamese
+                      ? "Ảnh minh chứng"
+                      : "Photo evidence"}
+
+                    {dynamicForm?.fields
+                      ?.photo_required ===
+                      true
+                      ? " *"
+                      : ""}
+                  </label>
+
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    disabled={
+                      isUploading ||
+                      isConfirmed
+                    }
+                    onChange={(event) => {
+                      const file =
+                        event.target
+                          .files?.[0] ||
+                        null;
+
+                      if (photoPreviewUrl) {
+                        URL.revokeObjectURL(
+                          photoPreviewUrl
+                        );
+                      }
+
+                      setSelectedPhotoFile(
+                        file
+                      );
+
+                      setPhotoPreviewUrl(
+                        file
+                          ? URL.createObjectURL(
+                              file
+                            )
+                          : ""
+                      );
+
+                      clearServerValidation();
+                    }}
+                  />
+
+                  {selectedPhotoFile && (
+                    <div
+                      style={{
+                        marginTop: "8px",
+                        fontSize: "13px",
+                      }}
+                    >
+                      {selectedPhotoFile.name}
+                    </div>
+                  )}
+
+                  {photoPreviewUrl && (
+                    <img
+                      src={photoPreviewUrl}
+                      alt={
+                        isVietnamese
+                          ? "Ảnh xem trước"
+                          : "Photo preview"
+                      }
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        maxHeight: "260px",
+                        objectFit: "contain",
+                        marginTop: "12px",
+                        borderRadius: "8px",
+                      }}
+                    />
+                  )}
+                </div>
+              )}
 
               <ActionButtons
                 hasAudio={
