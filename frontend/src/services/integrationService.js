@@ -362,6 +362,7 @@ const DYNAMIC_OPERATION_SAVE_CONFIG = {
       "plot_name_or_code",
       "region_text",
       "boundary_required",
+      "geometry",
       "owner_text",
       "current_crop_text",
       "location_hint_text",

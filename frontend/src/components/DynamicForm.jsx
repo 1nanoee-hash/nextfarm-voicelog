@@ -1,8 +1,33 @@
 import {
+  useState,
+} from "react";
+
+import {
   getDynamicFormFieldText,
   getDynamicFormOptionText,
   getDynamicFormTemplate,
 } from "../constants/dynamicFormTemplates";
+
+function formatGeometry(
+  geometry
+) {
+  if (
+    !geometry ||
+    typeof geometry !== "object"
+  ) {
+    return "";
+  }
+
+  try {
+    return JSON.stringify(
+      geometry,
+      null,
+      2
+    );
+  } catch {
+    return "";
+  }
+}
 
 function DynamicForm({
   operation,
@@ -20,6 +45,34 @@ function DynamicForm({
 
   const isVietnamese =
     language === "vi";
+
+  const geometry =
+    fields.geometry;
+
+  const [
+    geometryEditor,
+    setGeometryEditor,
+  ] = useState({
+    operation: null,
+    text: "",
+    error: "",
+  });
+
+  const isGeometryEditorActive =
+    geometryEditor.operation ===
+    operation;
+
+  const geometryText =
+    isGeometryEditorActive
+      ? geometryEditor.text
+      : formatGeometry(
+          geometry
+        );
+
+  const geometryError =
+    isGeometryEditorActive
+      ? geometryEditor.error
+      : "";
 
   const missingFields =
     dynamicForm?.missing_fields ?? [];
@@ -199,6 +252,77 @@ function DynamicForm({
       ...fields,
       [fieldName]: value,
     });
+  };
+
+  const updateGeometry = (
+    value
+  ) => {
+    const normalizedValue =
+      String(
+        value || ""
+      ).trim();
+
+    if (!normalizedValue) {
+      setGeometryEditor({
+        operation: null,
+        text: "",
+        error: "",
+      });
+
+      updateField(
+        "geometry",
+        null
+      );
+
+      return;
+    }
+
+    try {
+      const parsedGeometry =
+        JSON.parse(
+          normalizedValue
+        );
+
+      if (
+        !parsedGeometry ||
+        typeof parsedGeometry !==
+          "object" ||
+        parsedGeometry.type !==
+          "Polygon" ||
+        !Array.isArray(
+          parsedGeometry.coordinates
+        )
+      ) {
+        throw new Error(
+          "INVALID_GEOMETRY"
+        );
+      }
+
+      setGeometryEditor({
+        operation: null,
+        text: "",
+        error: "",
+      });
+
+      updateField(
+        "geometry",
+        parsedGeometry
+      );
+    } catch {
+      setGeometryEditor({
+        operation,
+        text: value,
+        error:
+          isVietnamese
+            ? "Geometry ch\u01b0a h\u1ee3p l\u1ec7. H\u00e3y nh\u1eadp GeoJSON Polygon \u0111\u00fang \u0111\u1ecbnh d\u1ea1ng."
+            : "Geometry is invalid. Enter a valid GeoJSON Polygon.",
+      });
+
+      updateField(
+        "geometry",
+        null
+      );
+    }
   };
 
   const getMaterials = () =>
@@ -799,24 +923,88 @@ function DynamicForm({
       {operation === "CREATE_PLOT" && (
         <div className="ai-field dynamic-form-map-shell">
           <div className="ai-field-label-row">
-            <span className="ai-field-label">
+            <label
+              className="ai-field-label"
+              htmlFor="plot_geometry"
+            >
               {isVietnamese
-                ? "Bản đồ ranh giới thửa đất"
-                : "Plot boundary map"}
-            </span>
+                ? "Ranh giới thửa đất (GeoJSON Polygon)"
+                : "Plot boundary (GeoJSON Polygon)"}
+            </label>
           </div>
 
-          <div className="confirm-helper warning">
-            <span aria-hidden="true">
-              🗺️
-            </span>
+          <textarea
+            id="plot_geometry"
+            value={geometryText}
+            onChange={(event) =>
+              updateGeometry(
+                event.target.value
+              )
+            }
+            readOnly={isConfirmed}
+            rows={12}
+            spellCheck={false}
+            aria-invalid={
+              geometryError
+                ? "true"
+                : "false"
+            }
+            placeholder={`{
+  "type": "Polygon",
+  "coordinates": [
+    [
+      [105.9700, 20.2500],
+      [105.9710, 20.2500],
+      [105.9710, 20.2510],
+      [105.9700, 20.2500]
+    ]
+  ]
+}`}
+          />
 
-            <span>
-              {isVietnamese
-                ? "Ranh giới thửa đất phải được thực hiện trên bản đồ. Contract V3.1 hiện chưa định nghĩa dữ liệu tọa độ hoặc geometry để lưu, nên phần này chưa tạo hoặc gửi dữ liệu ranh giới."
-                : "The plot boundary must be handled on a map. Contract V3.1 does not yet define coordinate or geometry data for saving, so this section does not create or submit boundary data yet."}
-            </span>
-          </div>
+          <p className="ai-hint">
+            {isVietnamese
+              ? "Mỗi điểm dùng thứ tự [kinh độ, vĩ độ]. Mỗi vòng cần ít nhất 4 điểm và điểm đầu phải trùng điểm cuối."
+              : "Each point uses [longitude, latitude]. Each ring needs at least 4 points and the first point must match the last."}
+          </p>
+
+          {geometryError && (
+            <p className="field-validation-message warning">
+              {geometryError}
+            </p>
+          )}
+
+          {geometry &&
+            !geometryError && (
+              <div className="confirm-helper">
+                <span aria-hidden="true">
+                  ✅
+                </span>
+
+                <span>
+                  {isVietnamese
+                    ? "Geometry đã được đọc thành GeoJSON Polygon và sẽ được Integration Service kiểm tra đầy đủ khi lưu."
+                    : "Geometry has been parsed as a GeoJSON Polygon and will be fully validated by Integration Service when saved."}
+                </span>
+              </div>
+            )}
+
+          {!geometry &&
+            !geometryError &&
+            fields.boundary_required ===
+              true && (
+              <div className="confirm-helper warning">
+                <span aria-hidden="true">
+                  🗺️
+                </span>
+
+                <span>
+                  {isVietnamese
+                    ? "Biểu mẫu đang yêu cầu ranh giới nhưng chưa có geometry."
+                    : "This form requires a boundary but no geometry has been entered yet."}
+                </span>
+              </div>
+            )}
         </div>
       )}
     </div>
