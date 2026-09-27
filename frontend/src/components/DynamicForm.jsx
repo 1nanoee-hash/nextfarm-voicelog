@@ -8,6 +8,8 @@ import {
   getDynamicFormTemplate,
 } from "../constants/dynamicFormTemplates";
 
+import PlotGeometryMap from "./PlotGeometryMap";
+
 function formatGeometry(
   geometry
 ) {
@@ -932,6 +934,24 @@ function DynamicForm({
                 : "Plot boundary (GeoJSON Polygon)"}
             </label>
           </div>
+
+          <PlotGeometryMap
+            geometry={geometry}
+            onChange={(nextGeometry) => {
+              setGeometryEditor({
+                operation: null,
+                text: "",
+                error: "",
+              });
+
+              updateField(
+                "geometry",
+                nextGeometry
+              );
+            }}
+            disabled={isConfirmed}
+            language={language}
+          />
 
           <textarea
             id="plot_geometry"
