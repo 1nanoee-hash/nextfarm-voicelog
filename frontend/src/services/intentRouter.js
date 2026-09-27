@@ -118,7 +118,44 @@ function isEditCommand(
 }
 
 
-export function isQueryIntent(
+function hasExplicitQueryCue(
+  text
+) {
+  const queryCues = [
+    "bao nhiêu",
+    "mấy lần",
+    "cho tôi xem",
+    "xem ",
+    "tìm ",
+    "tra cứu",
+    "nhật ký",
+    "lịch sử",
+    "gần nhất",
+    "mới nhất",
+    "đã làm gì",
+    "làm gì",
+    "thông tin",
+    "trạng thái",
+    "diện tích",
+    "how many",
+    "count",
+    "latest",
+    "recent",
+    "show ",
+    "find ",
+    "history",
+  ];
+
+  return queryCues.some(
+    (cue) =>
+      text.includes(
+        cue
+      )
+  );
+}
+
+
+function isWorkflowCreationCommand(
   message
 ) {
   const text =
@@ -126,15 +163,16 @@ export function isQueryIntent(
       message
     );
 
-  // Câu lệnh tạo/thêm dữ liệu workflow không được
-  // route nhầm sang query chỉ vì có từ "lô", "trồng", ...
   const workflowPrefixes = [
     "tạo ",
     "thêm ",
     "lập ",
     "ghi ",
+    "ghi nhận ",
+    "tạo mới ",
     "create ",
     "add ",
+    "record ",
   ];
 
   if (
@@ -145,12 +183,53 @@ export function isQueryIntent(
         )
     )
   ) {
+    return true;
+  }
+
+  const directOperationPrefixes = [
+    "thu hoạch ",
+    "báo cáo sự cố ",
+  ];
+
+  if (
+    directOperationPrefixes.some(
+      (prefix) =>
+        text.startsWith(
+          prefix
+        )
+    ) &&
+    !hasExplicitQueryCue(
+      text
+    )
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+
+export function isQueryIntent(
+  message
+) {
+  const text =
+    normalizeMessage(
+      message
+    );
+
+  // Các câu lệnh tạo/ghi nhận nghiệp vụ phải đi vào
+  // Dynamic Form thay vì bị hiểu nhầm thành truy vấn dữ liệu cũ.
+  if (
+    isWorkflowCreationCommand(
+      message
+    )
+  ) {
     return false;
   }
 
   const queryPatterns = [
     // Query cây trồng / trạng thái lô.
-    /lô\s+.+\s+(?:trồng|đang trồng|có cây|tình trạng)/i,
+    /\blô\s+.+\s+(?:trồng|đang trồng|có cây|tình trạng)/i,
 
     // Tra cứu nhật ký nói chung.
     /(?:cho tôi|xem|tìm|tra cứu).*(?:nhật ký|lịch sử)/i,
@@ -158,11 +237,9 @@ export function isQueryIntent(
     // Nhật ký gần nhất / theo thời gian.
     /nhật ký\s+(?:gần nhất|mới nhất|hôm nay|hôm qua)/i,
 
-    // Giai đoạn 6:
     // Query hoạt động / công việc / nhật ký theo ngày.
     /(?:hôm nay|hôm qua).*(?:hoạt động|công việc|nhật ký|đã làm|làm gì)/i,
 
-    // Giai đoạn 8:
     // Query trong 7 ngày gần đây.
     /(?:7 ngày gần đây|7 ngày qua|trong 7 ngày).*(?:hoạt động|công việc|nhật ký|đã làm|làm gì)/i,
 
