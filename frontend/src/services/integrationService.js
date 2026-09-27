@@ -1,6 +1,6 @@
 const INTEGRATION_API_BASE_URL =
   String(
-    import.meta.env.VITE_INTEGRATION_API_URL ||
+    import.meta.env?.VITE_INTEGRATION_API_URL ||
       "http://127.0.0.1:8002"
   ).replace(/\/+$/, "");
 
