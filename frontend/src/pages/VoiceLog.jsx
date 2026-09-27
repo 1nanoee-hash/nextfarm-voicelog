@@ -32,6 +32,7 @@ import {
 } from "../constants/dynamicFormOperations";
 import {
   createEmptyDynamicForm,
+  updateDynamicFormFields,
 } from "../utils/dynamicFormState";
 import {
   getDynamicFormTemplate,
@@ -3558,51 +3559,12 @@ function VoiceLog({
 
                 onFieldsChange={
                   (nextFields) => {
-                    const template =
-                      getDynamicFormTemplate(
-                        operation
-                      );
-
-                    const missingFields =
-                      template?.fields
-                        ?.filter(
-                          (field) => {
-                            if (
-                              !field.required
-                            ) {
-                              return false;
-                            }
-
-                            const value =
-                              nextFields?.[
-                                field.name
-                              ];
-
-                            return (
-                              typeof value ===
-                                "string"
-                                ? value.trim() ===
-                                  ""
-                                : value ===
-                                    null ||
-                                  value ===
-                                    undefined
-                            );
-                          }
-                        )
-                        .map(
-                          (field) =>
-                            field.name
-                        ) || [];
-
                     setDynamicForm(
-                      (previous) => ({
-                        ...previous,
-                        fields:
-                          nextFields,
-                        missing_fields:
-                          missingFields,
-                      })
+                      (previous) =>
+                        updateDynamicFormFields(
+                          previous,
+                          nextFields
+                        )
                     );
 
                     /*

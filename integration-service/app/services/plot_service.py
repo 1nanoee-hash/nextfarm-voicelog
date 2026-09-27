@@ -109,6 +109,9 @@ def build_plot_input(
         boundary_required=(
             request.boundary_required
         ),
+        geometry=(
+            request.geometry
+        ),
         owner_text=request.owner_text,
         current_crop_id=current_crop_id,
         location_hint_text=(
@@ -207,6 +210,8 @@ def serialize_plot(
         "region_id": plot.region_id,
         "boundary_required":
             plot.boundary_required,
+        "geometry":
+            plot.geometry,
         "owner_text":
             plot.owner_text,
         "current_crop_id":
@@ -273,6 +278,13 @@ def create_plot(
         region_id=payload.region_id,
         boundary_required=(
             payload.boundary_required
+        ),
+        geometry=(
+            payload.geometry.model_dump(
+                mode="json"
+            )
+            if payload.geometry is not None
+            else None
         ),
         owner_text=(
             payload.owner_text
@@ -351,6 +363,14 @@ def update_plot(
 
     plot.boundary_required = (
         payload.boundary_required
+    )
+
+    plot.geometry = (
+        payload.geometry.model_dump(
+            mode="json"
+        )
+        if payload.geometry is not None
+        else None
     )
 
     plot.owner_text = (

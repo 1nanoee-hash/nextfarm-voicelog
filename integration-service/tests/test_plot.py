@@ -986,3 +986,150 @@ def test_resolve_cultivation_can_use_created_plot(
         body["lot"]["code"]
         == plot["plot_code"]
     )
+
+
+def test_create_plot_with_geometry(
+    client: TestClient,
+) -> None:
+    payload = build_valid_plot(
+        "plot-geometry-001"
+    )
+
+    payload["plot_name_or_code"] = (
+        "Vườn Geometry 001"
+    )
+
+    payload["geometry"] = {
+        "type": "Polygon",
+        "coordinates": [
+            [
+                [105.9700, 20.2500],
+                [105.9710, 20.2500],
+                [105.9710, 20.2510],
+                [105.9700, 20.2500],
+            ],
+        ],
+    }
+
+    response = client.post(
+        "/api/plots",
+        json=payload,
+    )
+
+    assert response.status_code == 201
+
+    data = response.json()["data"]
+
+    assert (
+        data["geometry"]
+        == payload["geometry"]
+    )
+
+    get_response = client.get(
+        "/api/plots/plot-geometry-001"
+    )
+
+    assert get_response.status_code == 200
+
+    saved = (
+        get_response
+        .json()["data"]
+    )
+
+    assert (
+        saved["geometry"]
+        == payload["geometry"]
+    )
+
+
+def test_create_plot_rejects_open_polygon(
+    client: TestClient,
+) -> None:
+    payload = build_valid_plot(
+        "plot-geometry-open-001"
+    )
+
+    payload["plot_name_or_code"] = (
+        "Vườn Geometry Open"
+    )
+
+    payload["geometry"] = {
+        "type": "Polygon",
+        "coordinates": [
+            [
+                [105.9700, 20.2500],
+                [105.9710, 20.2500],
+                [105.9710, 20.2510],
+                [105.9700, 20.2510],
+            ],
+        ],
+    }
+
+    response = client.post(
+        "/api/plots",
+        json=payload,
+    )
+
+    assert response.status_code == 422
+
+
+def test_create_plot_rejects_invalid_longitude(
+    client: TestClient,
+) -> None:
+    payload = build_valid_plot(
+        "plot-geometry-longitude-001"
+    )
+
+    payload["plot_name_or_code"] = (
+        "Vườn Geometry Longitude"
+    )
+
+    payload["geometry"] = {
+        "type": "Polygon",
+        "coordinates": [
+            [
+                [181.0, 20.2500],
+                [105.9710, 20.2500],
+                [105.9710, 20.2510],
+                [181.0, 20.2500],
+            ],
+        ],
+    }
+
+    response = client.post(
+        "/api/plots",
+        json=payload,
+    )
+
+    assert response.status_code == 422
+
+
+def test_create_plot_rejects_invalid_latitude(
+    client: TestClient,
+) -> None:
+    payload = build_valid_plot(
+        "plot-geometry-latitude-001"
+    )
+
+    payload["plot_name_or_code"] = (
+        "Vườn Geometry Latitude"
+    )
+
+    payload["geometry"] = {
+        "type": "Polygon",
+        "coordinates": [
+            [
+                [105.9700, 91.0],
+                [105.9710, 20.2500],
+                [105.9710, 20.2510],
+                [105.9700, 91.0],
+            ],
+        ],
+    }
+
+    response = client.post(
+        "/api/plots",
+        json=payload,
+    )
+
+    assert response.status_code == 422
