@@ -1,6 +1,46 @@
 from app.schemas.activity import ActivityData
 
 
+MATERIAL_REQUIRED_ACTIVITIES = {
+    "bón phân",
+    "bon phan",
+    "phun thuốc",
+    "phun thuoc",
+    "xịt thuốc",
+    "xit thuoc",
+    "cho bò ăn",
+    "cho bo an",
+    "cho gia súc ăn",
+    "cho gia suc an",
+}
+
+
+def _normalize_text(
+    value: str | None,
+) -> str:
+    return (
+        str(value or "")
+        .strip()
+        .lower()
+    )
+
+
+def _requires_material(
+    activity_text: str | None,
+) -> bool:
+    normalized_activity = _normalize_text(
+        activity_text
+    )
+
+    if not normalized_activity:
+        return False
+
+    return any(
+        activity in normalized_activity
+        for activity in MATERIAL_REQUIRED_ACTIVITIES
+    )
+
+
 def apply_confidence_rules(
     data: ActivityData,
 ) -> ActivityData:
@@ -29,12 +69,6 @@ def apply_confidence_rules(
         if "lot_text" not in missing_fields:
             missing_fields.append(
                 "lot_text"
-            )
-
-    if data.time_text is None:
-        if "time_text" not in missing_fields:
-            missing_fields.append(
-                "time_text"
             )
 
     for material in data.materials:
@@ -71,7 +105,11 @@ def apply_confidence_rules(
         if (
             material.unit_text
             and material.unit_text.lower()
-            in {"xị", "công", "sào"}
+            in {
+                "xị",
+                "công",
+                "sào",
+            }
         ):
             warning = (
                 f"Đơn vị '{material.unit_text}' "
@@ -82,6 +120,12 @@ def apply_confidence_rules(
                 warnings.append(
                     warning
                 )
+
+    if data.time_text is None:
+        if "time_text" not in missing_fields:
+            missing_fields.append(
+                "time_text"
+            )
 
     requires_confirmation = bool(
         missing_fields

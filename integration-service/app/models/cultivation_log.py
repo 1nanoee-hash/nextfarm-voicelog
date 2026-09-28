@@ -52,15 +52,50 @@ class CultivationLogModel(Base):
         nullable=True,
     )
 
-    lot_code: Mapped[str] = mapped_column(
-        String(50),
-        nullable=False,
+    result_status: Mapped[str | None] = mapped_column(
+        String(20),
+        nullable=True,
+    )
+
+    tenant_id: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
         index=True,
     )
 
-    activity_code: Mapped[str] = mapped_column(
+    user_id: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+        index=True,
+    )
+
+    season_id: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+        index=True,
+    )
+
+    plot_id: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+        index=True,
+    )
+
+    task_id: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+        index=True,
+    )
+
+    lot_code: Mapped[str | None] = mapped_column(
         String(50),
-        nullable=False,
+        nullable=True,
+        index=True,
+    )
+
+    activity_code: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
         index=True,
     )
 
@@ -73,6 +108,11 @@ class CultivationLogModel(Base):
         String(50),
         nullable=True,
         index=True,
+    )
+
+    material_batch_text: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
     )
 
     notes: Mapped[str | None] = mapped_column(

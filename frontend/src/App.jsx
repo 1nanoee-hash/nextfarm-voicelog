@@ -16,6 +16,7 @@ import AppSidebar from "./components/AppSidebar";
 import AIAssistant from "./components/AIAssistant";
 
 import {
+  loadBackendLogs,
   loadLogs,
   persistLogs,
 } from "./services/logService";
@@ -52,39 +53,7 @@ function App() {
   ] = useState(() =>
     loadSettings()
   );
-
-  const language =
-    appSettings.language;
-
-  /* ===========================
-     Current VoiceLog AI context
-  =========================== */
-
-  const [
-    currentVoiceLogData,
-    setCurrentVoiceLogData,
-  ] = useState(
-    EMPTY_AI_DATA
-  );
-
-  const [
-    pendingAiChanges,
-    setPendingAiChanges,
-  ] = useState(null);
-
-  const [
-    highlightedField,
-    setHighlightedField,
-  ] = useState("");
-
-  const [
-    aiAuditEvents,
-    setAiAuditEvents,
-  ] = useState([]);
-
-  const aiUndoStackRef =
-    useRef([]);
-
+  
   /* ===========================
      Logs
   =========================== */
@@ -100,6 +69,114 @@ function App() {
   ] = useState(() =>
     loadLogs()
   );
+
+  useEffect(() => {
+    let cancelled =
+      false;
+
+    const loadLogsFromBackend =
+      async () => {
+        try {
+          const backendLogs =
+            await loadBackendLogs();
+
+          if (cancelled) {
+            return;
+          }
+
+          /*
+            Backend thành công
+            -> backend là source of truth.
+          */
+
+          setLogs(
+            backendLogs
+          );
+
+          /*
+            Local storage chỉ là cache.
+          */
+
+          if (
+            appSettings
+              .saveLocalLogs
+          ) {
+            persistLogs(
+              backendLogs
+            );
+          }
+        } catch (error) {
+          /*
+            Backend lỗi:
+            không xóa state hiện tại.
+
+            State lúc này vẫn là
+            local fallback từ loadLogs().
+          */
+
+          console.error(
+            "Load backend logs error:",
+            error
+          );
+        }
+      };
+
+    loadLogsFromBackend();
+
+    return () => {
+      cancelled =
+        true;
+    };
+  }, [
+    appSettings
+      .saveLocalLogs,
+  ]);
+  const language =
+    appSettings.language;
+
+  /* ===========================
+     Current VoiceLog AI context
+  =========================== */
+
+  const [
+    currentVoiceLogData,
+    setCurrentVoiceLogData,
+  ] = useState(
+    EMPTY_AI_DATA
+  );
+
+  const [
+    currentDynamicOperation,
+    setCurrentDynamicOperation,
+  ] = useState(null);
+
+  const [
+    currentDynamicForm,
+    setCurrentDynamicForm,
+  ] = useState(null);
+
+  const [
+    pendingAiChanges,
+    setPendingAiChanges,
+  ] = useState(null);
+
+  const [
+    pendingDynamicFormChange,
+    setPendingDynamicFormChange,
+  ] = useState(null);
+
+  const [
+    highlightedField,
+    setHighlightedField,
+  ] = useState("");
+
+  const [
+    aiAuditEvents,
+    setAiAuditEvents,
+  ] = useState([]);
+
+  const aiUndoStackRef =
+    useRef([]);
 
   /* ===========================
      Settings persistence
@@ -551,12 +628,30 @@ function App() {
             setCurrentVoiceLogData
           }
 
+          onOperationStateChange={
+            setCurrentDynamicOperation
+          }
+
+          onDynamicFormStateChange={
+            setCurrentDynamicForm
+          }
+
           externalAiChanges={
             pendingAiChanges
           }
 
           onExternalAiChangesApplied={
             handleAiChangesApplied
+          }
+
+          externalDynamicForm={
+            pendingDynamicFormChange
+          }
+
+          onExternalDynamicFormApplied={() =>
+            setPendingDynamicFormChange(
+              null
+            )
           }
 
           highlightedField={
@@ -567,6 +662,10 @@ function App() {
             setHighlightedField(
               ""
             )
+          }
+
+          logs={
+            logs
           }
         />
       )}
@@ -608,12 +707,28 @@ function App() {
             language
           }
 
+          activePage={
+            activePage
+          }
+
           aiData={
             currentVoiceLogData
           }
 
+          operation={
+            currentDynamicOperation
+          }
+
+          dynamicForm={
+            currentDynamicForm
+          }
+
           onApplyAiChanges={
             handleAiApplyChanges
+          }
+
+          onApplyDynamicForm={
+            setPendingDynamicFormChange
           }
 
           onUndoAiChanges={

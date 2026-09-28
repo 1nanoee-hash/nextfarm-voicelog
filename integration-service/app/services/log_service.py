@@ -39,6 +39,25 @@ def serialize_log(
         "schema_version": log.schema_version,
         "client_record_id": log.client_record_id,
         "transcript": log.transcript,
+        "result_status": log.result_status,
+        "context": {
+            "tenant_id": log.tenant_id,
+            "user_id": log.user_id,
+            "season_id": log.season_id,
+            "plot_id": log.plot_id,
+            "task_id": log.task_id,
+        }
+        if all(
+            value is not None
+            for value in (
+                log.tenant_id,
+                log.user_id,
+                log.season_id,
+                log.plot_id,
+                log.task_id,
+            )
+        )
+        else None,
         "lot_code": log.lot_code,
         "activity_code": log.activity_code,
         "materials": [
@@ -53,6 +72,7 @@ def serialize_log(
         ],
         "performed_at": log.performed_at.isoformat(),
         "performer_code": log.performer_code,
+        "material_batch_text": log.material_batch_text,
         "notes": log.notes,
         "source": log.source,
         "confirmed": log.confirmed,
@@ -118,10 +138,37 @@ def create_log(
         schema_version=payload.schema_version,
         client_record_id=payload.client_record_id,
         transcript=payload.transcript,
+        result_status=payload.result_status,
+        tenant_id=(
+            payload.context.tenant_id
+            if payload.context is not None
+            else None
+        ),
+        user_id=(
+            payload.context.user_id
+            if payload.context is not None
+            else None
+        ),
+        season_id=(
+            payload.context.season_id
+            if payload.context is not None
+            else None
+        ),
+        plot_id=(
+            payload.context.plot_id
+            if payload.context is not None
+            else None
+        ),
+        task_id=(
+            payload.context.task_id
+            if payload.context is not None
+            else None
+        ),
         lot_code=payload.lot_code,
         activity_code=payload.activity_code,
         performed_at=payload.performed_at,
         performer_code=payload.performer_code,
+        material_batch_text=payload.material_batch_text,
         notes=payload.notes,
         source=payload.source,
         confirmed=payload.confirmed,
@@ -160,6 +207,194 @@ def create_log(
 
     return serialize_log(new_log), True
 
+def update_log(
+    database_session: Session,
+    client_record_id: str,
+    payload: CultivationLogInput,
+) -> dict[str, Any] | None:
+    """
+    Cập nhật một cultivation log đã tồn tại.
+
+    PUT semantics:
+    - client_record_id không thay đổi
+    - cập nhật toàn bộ parent fields
+    - thay toàn bộ materials[] bằng payload mới
+    - commit trong cùng transaction
+
+    Trả về None nếu không tìm thấy record.
+    """
+
+    existing_log = (
+        find_log_by_client_record_id(
+            database_session=database_session,
+            client_record_id=client_record_id,
+        )
+    )
+
+    if existing_log is None:
+        return None
+
+    # =========================================================
+    # UPDATE PARENT
+    # =========================================================
+
+    existing_log.schema_version = (
+        payload.schema_version
+    )
+
+    existing_log.transcript = (
+        payload.transcript
+    )
+
+    existing_log.result_status = (
+        payload.result_status
+    )
+
+    existing_log.tenant_id = (
+        payload.context.tenant_id
+        if payload.context is not None
+        else None
+    )
+    existing_log.user_id = (
+        payload.context.user_id
+        if payload.context is not None
+        else None
+    )
+    existing_log.season_id = (
+        payload.context.season_id
+        if payload.context is not None
+        else None
+    )
+    existing_log.plot_id = (
+        payload.context.plot_id
+        if payload.context is not None
+        else None
+    )
+    existing_log.task_id = (
+        payload.context.task_id
+        if payload.context is not None
+        else None
+    )
+
+    existing_log.lot_code = (
+        payload.lot_code
+    )
+
+    existing_log.activity_code = (
+        payload.activity_code
+    )
+
+    existing_log.performed_at = (
+        payload.performed_at
+    )
+
+    existing_log.performer_code = (
+        payload.performer_code
+    )
+
+    existing_log.material_batch_text = (
+        payload.material_batch_text
+    )
+
+    existing_log.notes = (
+        payload.notes
+    )
+
+    existing_log.source = (
+        payload.source
+    )
+
+    existing_log.confirmed = (
+        payload.confirmed
+    )
+
+    existing_log.status = "saved"
+
+    # =========================================================
+    # REPLACE MATERIALS
+    # =========================================================
+    #
+    # Không sửa riêng material đầu tiên.
+    # PUT gửi full materials[] nên backend thay toàn bộ child rows.
+    #
+
+    database_session.execute(
+        delete(
+            CultivationLogMaterialModel
+        ).where(
+            CultivationLogMaterialModel.log_id
+            == existing_log.id
+        )
+    )
+
+    database_session.flush()
+
+    new_materials = [
+        CultivationLogMaterialModel(
+            log_id=existing_log.id,
+            material_code=(
+                material.material_code
+            ),
+            quantity=(
+                material.quantity
+            ),
+            unit_code=(
+                material.unit_code
+            ),
+        )
+        for material in payload.materials
+    ]
+
+    database_session.add_all(
+        new_materials
+    )
+
+    try:
+        database_session.commit()
+
+    except Exception:
+        database_session.rollback()
+        raise
+
+    # =========================================================
+    # RELOAD UPDATED RECORD
+    # =========================================================
+    #
+    # existing_log đã load materials[] trước đó.
+    # Vì phía trên dùng bulk DELETE + INSERT nên relationship
+    # materials có thể vẫn giữ collection cũ trong SQLAlchemy
+    # Session.
+    #
+    # populate_existing=True buộc SQLAlchemy ghi đè lại
+    # object/relationship bằng dữ liệu mới nhất từ database.
+    #
+
+    statement = (
+        select(CultivationLogModel)
+        .options(
+            selectinload(
+                CultivationLogModel.materials
+            )
+        )
+        .where(
+            CultivationLogModel.client_record_id
+            == client_record_id
+        )
+        .execution_options(
+            populate_existing=True
+        )
+    )
+
+    updated_log = database_session.scalar(
+        statement
+    )
+
+    if updated_log is None:
+        return None
+
+    return serialize_log(
+        updated_log
+    )
 
 def get_all_logs(
     database_session: Session,

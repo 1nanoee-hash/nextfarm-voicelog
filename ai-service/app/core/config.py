@@ -34,13 +34,34 @@ class Settings:
 
     GEMINI_MODEL: str = os.getenv(
         "GEMINI_MODEL",
-        "gemini-3.1-flash-lite",
+        "gemini-3.5-flash-lite",
+    )
+
+    GEMINI_FALLBACK_MODEL: str = os.getenv(
+        "GEMINI_FALLBACK_MODEL",
+        "gemini-3.5-flash",
     )
 
     # Whisper
     WHISPER_MODEL: str = os.getenv(
         "WHISPER_MODEL",
         "base",
+    )
+
+    WHISPER_LANGUAGE: str = os.getenv(
+        "WHISPER_LANGUAGE",
+        "vi",
+    )
+
+    WHISPER_INITIAL_PROMPT: str = os.getenv(
+        "WHISPER_INITIAL_PROMPT",
+        (
+            "Nhật ký canh tác NextFarm bằng tiếng Việt. "
+            "Các từ thường gặp: lô A, lô B, bón phân, "
+            "phun thuốc, tưới nước, làm cỏ, thu hoạch, "
+            "cho bò ăn, cám, phân NPK, phân urê, "
+            "kilogram, kg, gam, lít, chai, bao. "
+        ),
     )
 
     # File upload
