@@ -9,6 +9,7 @@ import {
   MapContainer,
   Polygon,
   TileLayer,
+  useMap,
   useMapEvents,
 } from "react-leaflet";
 
@@ -16,8 +17,8 @@ import "leaflet/dist/leaflet.css";
 
 
 const DEFAULT_CENTER = [
-  20.25,
-  105.97,
+  21.0285,
+  105.8542,
 ];
 
 const DEFAULT_ZOOM = 16;
@@ -117,6 +118,25 @@ function toLeafletPositions(
 }
 
 
+function MapCenterController({
+  center,
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    map.setView(
+      center,
+      map.getZoom()
+    );
+  }, [
+    center,
+    map,
+  ]);
+
+  return null;
+}
+
+
 function MapClickHandler({
   disabled,
   onAddPoint,
@@ -182,10 +202,50 @@ function PlotGeometryMap({
       points
     );
 
+  const [
+    userCenter,
+    setUserCenter,
+  ] = useState(null);
+
+  useEffect(() => {
+    if (
+      leafletPositions.length > 0 ||
+      userCenter ||
+      !navigator.geolocation
+    ) {
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserCenter([
+          position.coords.latitude,
+          position.coords.longitude,
+        ]);
+      },
+      () => {
+        setUserCenter(
+          DEFAULT_CENTER
+        );
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 5000,
+        maximumAge: 60000,
+      }
+    );
+  }, [
+    leafletPositions.length,
+    userCenter,
+  ]);
+
   const center =
     leafletPositions.length > 0
       ? leafletPositions[0]
-      : DEFAULT_CENTER;
+      : (
+          userCenter ??
+          DEFAULT_CENTER
+        );
 
   const updatePoints = (
     nextPoints
@@ -286,8 +346,12 @@ function PlotGeometryMap({
         }}
       >
         <TileLayer
-          attribution="&copy; OpenStreetMap contributors"
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution="Tiles &copy; Esri"
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"
+        />
+
+        <MapCenterController
+          center={center}
         />
 
         <MapClickHandler

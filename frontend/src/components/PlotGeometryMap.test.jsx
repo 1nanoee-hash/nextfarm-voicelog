@@ -76,6 +76,15 @@ vi.mock(
       );
     },
 
+    useMap() {
+      return {
+        setView: vi.fn(),
+        getZoom: vi.fn(
+          () => 16
+        ),
+      };
+    },
+
     useMapEvents(
       handlers
     ) {
