@@ -91,7 +91,7 @@ QUESTION_BY_FIELD: dict[str, dict[str, str]] = {
             "Lô này thuộc khu vực nào?"
         ),
         "boundary_required": (
-            "Bạn cần vẽ ranh giới lô trên bản đồ để tiếp tục."
+            "Lô này có cần xác định ranh giới trên bản đồ không?"
         ),
     },
     "CREATE_TASK": {
