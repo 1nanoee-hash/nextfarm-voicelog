@@ -1,4 +1,10 @@
 import {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+
+import {
   CircleMarker,
   MapContainer,
   Polygon,
@@ -141,10 +147,35 @@ function PlotGeometryMap({
   const isVietnamese =
     language === "vi";
 
-  const points =
-    getGeometryPoints(
-      geometry
+  const [
+    points,
+    setPoints,
+  ] = useState(
+    () =>
+      getGeometryPoints(
+        geometry
+      )
+  );
+
+  const internalGeometryChange =
+    useRef(false);
+
+  useEffect(() => {
+    if (
+      internalGeometryChange.current
+    ) {
+      internalGeometryChange.current =
+        false;
+
+      return;
+    }
+
+    setPoints(
+      getGeometryPoints(
+        geometry
+      )
     );
+  }, [geometry]);
 
   const leafletPositions =
     toLeafletPositions(
@@ -159,9 +190,16 @@ function PlotGeometryMap({
   const updatePoints = (
     nextPoints
   ) => {
+    setPoints(
+      nextPoints
+    );
+
     if (
       nextPoints.length >= 3
     ) {
+      internalGeometryChange.current =
+        true;
+
       onChange?.(
         buildGeometry(
           nextPoints
@@ -171,12 +209,17 @@ function PlotGeometryMap({
       return;
     }
 
-    onChange?.({
-      type: "Polygon",
-      coordinates: [
-        nextPoints,
-      ],
-    });
+    if (
+      geometry !== null &&
+      geometry !== undefined
+    ) {
+      internalGeometryChange.current =
+        true;
+
+      onChange?.(
+        null
+      );
+    }
   };
 
   const addPoint = (
@@ -202,16 +245,6 @@ function PlotGeometryMap({
         -1
       );
 
-    if (
-      nextPoints.length === 0
-    ) {
-      onChange?.(
-        null
-      );
-
-      return;
-    }
-
     updatePoints(
       nextPoints
     );
@@ -222,9 +255,21 @@ function PlotGeometryMap({
       return;
     }
 
-    onChange?.(
-      null
+    setPoints(
+      []
     );
+
+    if (
+      geometry !== null &&
+      geometry !== undefined
+    ) {
+      internalGeometryChange.current =
+        true;
+
+      onChange?.(
+        null
+      );
+    }
   };
 
   return (

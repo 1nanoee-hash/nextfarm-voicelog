@@ -232,6 +232,68 @@ describe(
 
 
     it(
+      "keeps one and two points as local draft without emitting invalid geometry",
+      () => {
+        const onGeometryChange =
+          vi.fn();
+
+        render(
+          <GeometryHarness
+            onGeometryChange={
+              onGeometryChange
+            }
+            language="en"
+          />
+        );
+
+        clickMap(
+          105.97,
+          20.25
+        );
+
+        expect(
+          onGeometryChange
+        ).not.toHaveBeenCalled();
+
+        expect(
+          screen.getByText(
+            "1 points selected"
+          )
+        ).toBeTruthy();
+
+        clickMap(
+          105.971,
+          20.25
+        );
+
+        expect(
+          onGeometryChange
+        ).not.toHaveBeenCalled();
+
+        expect(
+          screen.getByText(
+            "2 points selected"
+          )
+        ).toBeTruthy();
+
+        expect(
+          screen.getAllByTestId(
+            "map-point"
+          )
+        ).toHaveLength(
+          2
+        );
+
+        expect(
+          screen.queryByTestId(
+            "map-polygon"
+          )
+        ).toBeNull();
+      }
+    );
+
+
+    it(
       "creates and automatically closes a Polygon after three map clicks",
       () => {
         const onGeometryChange =
@@ -302,7 +364,7 @@ describe(
 
 
     it(
-      "undo removes the latest point",
+      "undo from three points clears valid geometry but keeps two draft points",
       () => {
         const onGeometryChange =
           vi.fn();
@@ -339,6 +401,7 @@ describe(
             onGeometryChange={
               onGeometryChange
             }
+            language="en"
           />
         );
 
@@ -347,34 +410,30 @@ describe(
             "button",
             {
               name:
-                "Hoàn tác điểm",
+                "Undo point",
             }
           )
         );
 
         expect(
           onGeometryChange
-        ).toHaveBeenLastCalledWith({
-          type: "Polygon",
-          coordinates: [
-            [
-              [
-                105.97,
-                20.25,
-              ],
-              [
-                105.971,
-                20.25,
-              ],
-            ],
-          ],
-        });
+        ).toHaveBeenLastCalledWith(
+          null
+        );
 
         expect(
           screen.getByText(
-            "2 điểm đã chọn"
+            "2 points selected"
           )
         ).toBeTruthy();
+
+        expect(
+          screen.getAllByTestId(
+            "map-point"
+          )
+        ).toHaveLength(
+          2
+        );
 
         expect(
           screen.queryByTestId(
