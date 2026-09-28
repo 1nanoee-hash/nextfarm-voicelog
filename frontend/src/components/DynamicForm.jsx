@@ -853,10 +853,6 @@ function DynamicForm({
               : "Form data"}
           </h3>
 
-          <p className="ai-hint">
-            {dynamicForm?.template_id ??
-              template.templateId}
-          </p>
         </div>
 
         <span className="ai-badge">
