@@ -30,10 +30,6 @@ import {
   handleQueryIntent,
 } from "../services/queryAssistantService";
 
-import {
-  extractWakeWordCommand,
-} from "../utils/wakeWord";
-
 const STORAGE_KEY =
   "nextfarm-ai-conversations";
 
@@ -88,19 +84,6 @@ function AIAssistant({
     useState("ready");
   const [isListening, setIsListening] =
     useState(false);
-
-  // HANDS_FREE_WAKE_WORD_V1
-  // HANDS_FREE_WAKE_WORD_V2
-  const [
-    isHandsFreeEnabled,
-    setIsHandsFreeEnabled,
-  ] = useState(false);
-
-  const [
-    handsFreePhase,
-    setHandsFreePhase,
-  ] = useState("wake");
-
   const [voiceMessage, setVoiceMessage] =
     useState("");
 
@@ -170,18 +153,6 @@ function AIAssistant({
   const recognitionRef = useRef(null);
   const voiceTranscriptRef = useRef("");
   const voiceResetTimeoutRef = useRef(null);
-
-  const handsFreeEnabledRef =
-    useRef(false);
-
-  const handsFreePhaseRef =
-    useRef("wake");
-
-  const handsFreeRestartTimeoutRef =
-    useRef(null);
-
-  const handsFreeCommandInFlightRef =
-    useRef(false);
 
   const isVietnamese =
     language === "vi";
@@ -337,20 +308,6 @@ function AIAssistant({
         );
       }
 
-      handsFreeEnabledRef.current =
-        false;
-
-      if (
-        handsFreeRestartTimeoutRef.current
-      ) {
-        clearTimeout(
-          handsFreeRestartTimeoutRef.current
-        );
-
-        handsFreeRestartTimeoutRef.current =
-          null;
-      }
-
       if (recognitionRef.current) {
         try {
           recognitionRef.current.abort();
@@ -390,23 +347,6 @@ function AIAssistant({
         !clickedInside &&
         !clickedFloatingButton
       ) {
-        handsFreeEnabledRef.current =
-          false;
-
-        if (
-          handsFreeRestartTimeoutRef.current
-        ) {
-          clearTimeout(
-            handsFreeRestartTimeoutRef.current
-          );
-
-          handsFreeRestartTimeoutRef.current =
-            null;
-        }
-
-        setIsHandsFreeEnabled(false);
-        setHandsFreePhase("wake");
-
         if (recognitionRef.current) {
           recognitionRef.current.stop();
         }
@@ -422,23 +362,6 @@ function AIAssistant({
       event
     ) => {
       if (event.key === "Escape") {
-        handsFreeEnabledRef.current =
-          false;
-
-        if (
-          handsFreeRestartTimeoutRef.current
-        ) {
-          clearTimeout(
-            handsFreeRestartTimeoutRef.current
-          );
-
-          handsFreeRestartTimeoutRef.current =
-            null;
-        }
-
-        setIsHandsFreeEnabled(false);
-        setHandsFreePhase("wake");
-
         if (recognitionRef.current) {
           recognitionRef.current.stop();
         }
@@ -2084,625 +2007,6 @@ function AIAssistant({
       }, 2200);
   };
 
-  const getSpeechRecognition =
-    () =>
-      window.SpeechRecognition ||
-      window.webkitSpeechRecognition;
-
-  const clearHandsFreeRestartTimer =
-    () => {
-      if (
-        !handsFreeRestartTimeoutRef.current
-      ) {
-        return;
-      }
-
-      window.clearTimeout(
-        handsFreeRestartTimeoutRef.current
-      );
-
-      handsFreeRestartTimeoutRef.current =
-        null;
-    };
-
-  const scheduleHandsFreeRecognition =
-    (
-      phase =
-        handsFreePhaseRef.current,
-      delayMs = 450
-    ) => {
-      clearHandsFreeRestartTimer();
-
-      if (
-        !handsFreeEnabledRef.current ||
-        handsFreeCommandInFlightRef.current
-      ) {
-        return;
-      }
-
-      handsFreeRestartTimeoutRef.current =
-        window.setTimeout(
-          () => {
-            handsFreeRestartTimeoutRef.current =
-              null;
-
-            if (
-              !handsFreeEnabledRef.current ||
-              handsFreeCommandInFlightRef.current ||
-              recognitionRef.current
-            ) {
-              return;
-            }
-
-            startHandsFreeRecognition(
-              phase
-            );
-          },
-          delayMs
-        );
-    };
-
-  const startHandsFreeRecognition =
-    (
-      phase =
-        handsFreePhaseRef.current
-    ) => {
-      if (
-        !handsFreeEnabledRef.current ||
-        handsFreeCommandInFlightRef.current ||
-        recognitionRef.current
-      ) {
-        return;
-      }
-
-      const SpeechRecognition =
-        getSpeechRecognition();
-
-      if (!SpeechRecognition) {
-        handsFreeEnabledRef.current =
-          false;
-
-        setIsHandsFreeEnabled(false);
-        setHandsFreePhase("wake");
-        setAssistantStatus(
-          "needsInput"
-        );
-
-        setVoiceMessage(
-          isVietnamese
-            ? "Trình duyệt này chưa hỗ trợ chế độ rảnh tay bằng giọng nói."
-            : "This browser does not support hands-free voice mode."
-        );
-
-        return;
-      }
-
-      handsFreePhaseRef.current =
-        phase;
-
-      setHandsFreePhase(
-        phase
-      );
-
-      const recognition =
-        new SpeechRecognition();
-
-      recognition.lang =
-        isVietnamese
-          ? "vi-VN"
-          : "en-US";
-
-      recognition.continuous =
-        false;
-
-      recognition.interimResults =
-        phase === "command";
-
-      recognitionRef.current =
-        recognition;
-
-      let finalTranscript = "";
-      let commandDispatched =
-        false;
-
-      const finishCommand =
-        (command) => {
-          const cleanCommand =
-            String(
-              command || ""
-            ).trim();
-
-          if (
-            commandDispatched ||
-            !cleanCommand
-          ) {
-            return;
-          }
-
-          commandDispatched =
-            true;
-
-          handsFreeCommandInFlightRef.current =
-            true;
-
-          handsFreePhaseRef.current =
-            "wake";
-
-          setHandsFreePhase(
-            "wake"
-          );
-
-          setInputValue(
-            cleanCommand
-          );
-
-          setIsListening(false);
-
-          setVoiceMessage(
-            isVietnamese
-              ? `Đã nhận lệnh: "${cleanCommand}"`
-              : `Command received: "${cleanCommand}"`
-          );
-
-          try {
-            recognition.stop();
-          } catch {
-            // Recognition may already be ending.
-          }
-
-          window.setTimeout(
-            () => {
-              void sendMessage(
-                cleanCommand
-              ).finally(() => {
-                handsFreeCommandInFlightRef.current =
-                  false;
-
-                if (
-                  !handsFreeEnabledRef.current
-                ) {
-                  return;
-                }
-
-                setVoiceMessage(
-                  isVietnamese
-                    ? 'Rảnh tay đang bật. Hãy gọi "NextFarm ơi".'
-                    : 'Hands-free mode is on. Say "NextFarm".'
-                );
-
-                scheduleHandsFreeRecognition(
-                  "wake",
-                  650
-                );
-              });
-            },
-            0
-          );
-        };
-
-      recognition.onstart =
-        () => {
-          if (
-            phase ===
-            "command"
-          ) {
-            setIsListening(
-              true
-            );
-
-            setAssistantStatus(
-              "listening"
-            );
-
-            setVoiceMessage(
-              isVietnamese
-                ? "🎧 NextFarm đang nghe lệnh..."
-                : "🎧 NextFarm is listening for your command..."
-            );
-          }
-        };
-
-      recognition.onresult =
-        (event) => {
-          let interimTranscript =
-            "";
-
-          for (
-            let index =
-              event.resultIndex;
-            index <
-            event.results.length;
-            index += 1
-          ) {
-            const result =
-              event.results[
-                index
-              ];
-
-            const transcript =
-              result?.[0]
-                ?.transcript
-                ?.trim() ||
-              "";
-
-            if (!transcript) {
-              continue;
-            }
-
-            if (
-              result.isFinal
-            ) {
-              finalTranscript =
-                `${finalTranscript} ${transcript}`.trim();
-            } else {
-              interimTranscript =
-                `${interimTranscript} ${transcript}`.trim();
-            }
-          }
-
-          const preview = [
-            finalTranscript,
-            interimTranscript,
-          ]
-            .filter(Boolean)
-            .join(" ")
-            .trim();
-
-          if (
-            phase ===
-            "wake"
-          ) {
-            if (
-              !finalTranscript
-            ) {
-              return;
-            }
-
-            const wakeResult =
-              extractWakeWordCommand(
-                finalTranscript
-              );
-
-            if (
-              !wakeResult.matched
-            ) {
-              setAssistantStatus(
-                "ready"
-              );
-
-              setVoiceMessage(
-                isVietnamese
-                  ? `Đã nghe: "${finalTranscript}". Chưa khớp từ đánh thức "NextFarm ơi".`
-                  : `Heard: "${finalTranscript}". The wake phrase was not matched.`
-              );
-
-              return;
-            }
-
-            if (
-              wakeResult.command
-            ) {
-              finishCommand(
-                wakeResult.command
-              );
-
-              return;
-            }
-
-            handsFreePhaseRef.current =
-              "command";
-
-            setHandsFreePhase(
-              "command"
-            );
-
-            setVoiceMessage(
-              isVietnamese
-                ? '✅ Đã nghe "NextFarm ơi". Hãy nói lệnh của bạn.'
-                : '✅ Wake phrase detected. Say your command.'
-            );
-
-            try {
-              recognition.stop();
-            } catch {
-              // Recognition may already be ending.
-            }
-
-            return;
-          }
-
-          if (preview) {
-            setInputValue(
-              preview
-            );
-          }
-
-          if (
-            finalTranscript
-          ) {
-            finishCommand(
-              finalTranscript
-            );
-          }
-        };
-
-      recognition.onerror =
-        (event) => {
-          if (
-            event.error ===
-            "aborted"
-          ) {
-            return;
-          }
-
-          if (
-            event.error ===
-            "no-speech"
-          ) {
-            if (
-              phase ===
-              "command"
-            ) {
-              handsFreePhaseRef.current =
-                "wake";
-
-              setHandsFreePhase(
-                "wake"
-              );
-
-              setIsListening(
-                false
-              );
-
-              setAssistantStatus(
-                "ready"
-              );
-
-              setVoiceMessage(
-                isVietnamese
-                  ? 'Không nghe thấy lệnh. Hãy gọi lại "NextFarm ơi".'
-                  : 'No command was heard. Say the wake phrase again.'
-              );
-            }
-
-            return;
-          }
-
-          console.error(
-            "Hands-free speech recognition error:",
-            event.error
-          );
-
-          handsFreeEnabledRef.current =
-            false;
-
-          setIsHandsFreeEnabled(
-            false
-          );
-
-          setHandsFreePhase(
-            "wake"
-          );
-
-          setIsListening(
-            false
-          );
-
-          setAssistantStatus(
-            "needsInput"
-          );
-
-          const errorMessages = {
-            "not-allowed":
-              isVietnamese
-                ? "Chưa được cấp quyền microphone. Hãy cho phép trình duyệt dùng microphone rồi bật lại chế độ rảnh tay."
-                : "Microphone permission was denied. Allow microphone access and enable hands-free mode again.",
-
-            "audio-capture":
-              isVietnamese
-                ? "Không tìm thấy microphone khả dụng."
-                : "No available microphone was found.",
-
-            network:
-              isVietnamese
-                ? "Dịch vụ nhận dạng giọng nói tạm thời không khả dụng."
-                : "Speech recognition is temporarily unavailable.",
-          };
-
-          setVoiceMessage(
-            errorMessages[
-              event.error
-            ] ||
-              (
-                isVietnamese
-                  ? "Chế độ rảnh tay đã dừng do lỗi nhận dạng giọng nói."
-                  : "Hands-free mode stopped because speech recognition failed."
-              )
-          );
-        };
-
-      recognition.onend =
-        () => {
-          if (
-            recognitionRef.current ===
-            recognition
-          ) {
-            recognitionRef.current =
-              null;
-          }
-
-          if (
-            phase ===
-            "command"
-          ) {
-            setIsListening(
-              false
-            );
-
-            setAssistantStatus(
-              (current) =>
-                current ===
-                "listening"
-                  ? "ready"
-                  : current
-            );
-          }
-
-          if (
-            !handsFreeEnabledRef.current ||
-            handsFreeCommandInFlightRef.current
-          ) {
-            return;
-          }
-
-          scheduleHandsFreeRecognition(
-            handsFreePhaseRef.current
-          );
-        };
-
-      try {
-        recognition.start();
-      } catch (error) {
-        console.error(
-          "Start hands-free recognition error:",
-          error
-        );
-
-        if (
-          recognitionRef.current ===
-          recognition
-        ) {
-          recognitionRef.current =
-            null;
-        }
-
-        scheduleHandsFreeRecognition(
-          phase,
-          900
-        );
-      }
-    };
-
-  const disableHandsFreeMode =
-    () => {
-      handsFreeEnabledRef.current =
-        false;
-
-      handsFreeCommandInFlightRef.current =
-        false;
-
-      handsFreePhaseRef.current =
-        "wake";
-
-      clearHandsFreeRestartTimer();
-
-      setIsHandsFreeEnabled(
-        false
-      );
-
-      setHandsFreePhase(
-        "wake"
-      );
-
-      setIsListening(
-        false
-      );
-
-      setAssistantStatus(
-        (current) =>
-          current ===
-          "listening"
-            ? "ready"
-            : current
-      );
-
-      setVoiceMessage("");
-
-      if (
-        recognitionRef.current
-      ) {
-        try {
-          recognitionRef.current.abort();
-        } catch {
-          // Ignore browser-specific abort errors.
-        }
-
-        recognitionRef.current =
-          null;
-      }
-    };
-
-  const toggleHandsFreeMode =
-    () => {
-      if (
-        isHandsFreeEnabled
-      ) {
-        disableHandsFreeMode();
-        return;
-      }
-
-      if (
-        assistantStatus ===
-          "thinking" ||
-        isListening ||
-        pendingEdit
-      ) {
-        return;
-      }
-
-      const SpeechRecognition =
-        getSpeechRecognition();
-
-      if (!SpeechRecognition) {
-        setAssistantStatus(
-          "needsInput"
-        );
-
-        setVoiceMessage(
-          isVietnamese
-            ? "Trình duyệt này chưa hỗ trợ chế độ rảnh tay bằng giọng nói."
-            : "This browser does not support hands-free voice mode."
-        );
-
-        resetVoiceStatusLater();
-        return;
-      }
-
-      clearVoiceResetTimer();
-      clearHandsFreeRestartTimer();
-
-      handsFreeEnabledRef.current =
-        true;
-
-      handsFreeCommandInFlightRef.current =
-        false;
-
-      handsFreePhaseRef.current =
-        "wake";
-
-      setIsHandsFreeEnabled(
-        true
-      );
-
-      setHandsFreePhase(
-        "wake"
-      );
-
-      setAssistantStatus(
-        "ready"
-      );
-
-      setVoiceMessage(
-        isVietnamese
-          ? '🎙️ Rảnh tay đã bật. Hãy gọi "NextFarm ơi".'
-          : '🎙️ Hands-free mode is on. Say "NextFarm".'
-      );
-
-      startHandsFreeRecognition(
-        "wake"
-      );
-    };
-
   const stopVoiceInput = () => {
     if (!recognitionRef.current) {
       return;
@@ -2719,10 +2023,7 @@ function AIAssistant({
   };
 
   const startVoiceInput = () => {
-    if (
-      isHandsFreeEnabled ||
-      assistantStatus === "thinking"
-    ) {
+    if (assistantStatus === "thinking") {
       return;
     }
 
@@ -3980,8 +3281,6 @@ function AIAssistant({
                 type="button"
                 className="ai-assistant-close"
                 onClick={() => {
-                  disableHandsFreeMode();
-
                   if (recognitionRef.current) {
                     recognitionRef.current.stop();
                   }
@@ -4627,72 +3926,6 @@ function AIAssistant({
               </div>
 
               <div className="ai-assistant-input-area">
-                <div className="assistant-hands-free-row">
-                  <button
-                    type="button"
-                    className={`assistant-hands-free-toggle ${
-                      isHandsFreeEnabled
-                        ? "active"
-                        : ""
-                    }`}
-                    onClick={
-                      toggleHandsFreeMode
-                    }
-                    disabled={
-                      !isHandsFreeEnabled &&
-                      (
-                        assistantStatus ===
-                          "thinking" ||
-                        isListening ||
-                        Boolean(
-                          pendingEdit
-                        )
-                      )
-                    }
-                    aria-pressed={
-                      isHandsFreeEnabled
-                    }
-                    title={
-                      isVietnamese
-                        ? "Bật hoặc tắt chế độ gọi NextFarm ơi"
-                        : "Toggle wake phrase mode"
-                    }
-                  >
-                    <span aria-hidden="true">
-                      🎙️
-                    </span>
-
-                    <span>
-                      {isVietnamese
-                        ? "Rảnh tay"
-                        : "Hands-free"}
-                    </span>
-
-                    <strong>
-                      {isHandsFreeEnabled
-                        ? isVietnamese
-                          ? "BẬT"
-                          : "ON"
-                        : isVietnamese
-                          ? "TẮT"
-                          : "OFF"}
-                    </strong>
-                  </button>
-
-                  {isHandsFreeEnabled && (
-                    <span className="assistant-hands-free-state">
-                      {handsFreePhase ===
-                      "command"
-                        ? isVietnamese
-                          ? "Đang nghe lệnh..."
-                          : "Listening for command..."
-                        : isVietnamese
-                          ? 'Chờ "NextFarm ơi"'
-                          : 'Waiting for "NextFarm"'}
-                    </span>
-                  )}
-                </div>
-
                 <form
                   className="assistant-input-wrapper"
                   onSubmit={
@@ -4748,23 +3981,18 @@ function AIAssistant({
                         : ""
                     }`}
                     title={
-                      isHandsFreeEnabled
+                      isListening
                         ? isVietnamese
-                          ? "Tắt chế độ rảnh tay để dùng nút micro"
-                          : "Turn off hands-free mode to use the microphone button"
-                        : isListening
-                          ? isVietnamese
-                            ? "Dừng nghe"
-                            : "Stop listening"
-                          : isVietnamese
-                            ? "Hỏi bằng giọng nói"
-                            : "Ask by voice"
+                          ? "Dừng nghe"
+                          : "Stop listening"
+                        : isVietnamese
+                          ? "Hỏi bằng giọng nói"
+                          : "Ask by voice"
                     }
                     onClick={
                       startVoiceInput
                     }
                     disabled={
-                      isHandsFreeEnabled ||
                       assistantStatus ===
                         "thinking" ||
                       Boolean(

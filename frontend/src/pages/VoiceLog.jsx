@@ -10,6 +10,7 @@ import {
 import Header from "../components/Header";
 import WorkflowStepper from "../components/WorkflowStepper";
 import RecordButton from "../components/RecordButton";
+import HandsFreeWakeControl from "../components/HandsFreeWakeControl";
 import TranscriptBox from "../components/TranscriptBox";
 import ActionButtons from "../components/ActionButtons";
 import OperationSelector from "../components/OperationSelector";
@@ -392,6 +393,21 @@ function VoiceLog({
     audioBlob,
     setAudioBlob,
   ] = useState(null);
+
+  const [
+    handsFreeEnabled,
+    setHandsFreeEnabled,
+  ] = useState(false);
+
+  const [
+    handsFreeBusy,
+    setHandsFreeBusy,
+  ] = useState(false);
+
+  const [
+    handsFreeRecordSignal,
+    setHandsFreeRecordSignal,
+  ] = useState(0);
 
   /* ===========================
      AI Data
@@ -1884,10 +1900,12 @@ function VoiceLog({
      Upload AI
   =========================== */
 
-  const handleUpload =
-    async () => {
+  const processAudioBlob =
+    async (
+      blobToProcess
+    ) => {
       if (
-        !audioBlob ||
+        !blobToProcess ||
         isUploading ||
         isConfirmed
       ) {
@@ -1919,7 +1937,7 @@ function VoiceLog({
       try {
         const data =
           await uploadAudio(
-            audioBlob,
+            blobToProcess,
             {
               operation,
               currentFields:
@@ -1998,6 +2016,62 @@ function VoiceLog({
         setIsUploading(
           false
         );
+      }
+    };
+
+  const handleUpload =
+    async () => {
+      await processAudioBlob(
+        audioBlob
+      );
+    };
+
+  const handleHandsFreeWake =
+    () => {
+      if (
+        handsFreeBusy ||
+        isUploading ||
+        isConfirmed
+      ) {
+        return;
+      }
+
+      setHandsFreeBusy(true);
+      setHandsFreeRecordSignal(
+        (previous) => previous + 1
+      );
+
+      showMessage(
+        "success",
+        isVietnamese
+          ? "🎙️ Đã nghe từ đánh thức. Đang bật nút ghi âm chính..."
+          : "🎙️ Wake phrase detected. Starting the main recorder..."
+      );
+    };
+
+  const handleHandsFreeRecordingComplete =
+    async (recordedBlob) => {
+      if (!handsFreeBusy) {
+        return;
+      }
+
+      try {
+        await processAudioBlob(
+          recordedBlob
+        );
+      } finally {
+        setHandsFreeBusy(false);
+      }
+    };
+
+  const handleHandsFreeEnabledChange =
+    (nextEnabled) => {
+      setHandsFreeEnabled(
+        nextEnabled
+      );
+
+      if (!nextEnabled) {
+        setHandsFreeBusy(false);
       }
     };
 
@@ -3490,6 +3564,33 @@ function VoiceLog({
         <section className="voice-workspace-grid">
           <div className="voice-primary-column">
             <div className="workspace-card record-card">
+              <HandsFreeWakeControl
+                enabled={
+                  handsFreeEnabled
+                }
+
+                onEnabledChange={
+                  handleHandsFreeEnabledChange
+                }
+
+                onWake={
+                  handleHandsFreeWake
+                }
+
+                paused={
+                  handsFreeBusy ||
+                  isUploading
+                }
+
+                disabled={
+                  isConfirmed
+                }
+
+                language={
+                  language
+                }
+              />
+
               <RecordButton
                 audioUrl={
                   audioUrl
@@ -3523,6 +3624,14 @@ function VoiceLog({
 
                 language={
                   language
+                }
+
+                externalStartSignal={
+                  handsFreeRecordSignal
+                }
+
+                onRecordingComplete={
+                  handleHandsFreeRecordingComplete
                 }
               />
             </div>

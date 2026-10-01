@@ -52,6 +52,7 @@ class Settings:
         "WHISPER_INITIAL_PROMPT",
         (
             "Nhật ký canh tác NextFarm bằng tiếng Việt. "
+            "Cụm gọi trợ lý thường gặp: Bô bô. "
             "Các từ thường gặp: lô A, lô B, bón phân, "
             "phun thuốc, tưới nước, làm cỏ, thu hoạch, "
             "cho bò ăn, cám, phân NPK, phân urê, "

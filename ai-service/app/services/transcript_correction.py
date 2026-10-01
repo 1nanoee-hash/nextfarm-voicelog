@@ -2,6 +2,35 @@ import re
 
 
 SAFE_CORRECTIONS: list[tuple[str, str]] = [
+    # Từ đánh thức "Bô bô" ở đầu câu.
+    (
+        (
+            r"^(?:"
+            r"B[ôồốỗộ]\s*B[ôồốỗộ]|"
+            r"Bo\s*Bo|"
+            r"Bobo"
+            r")\b"
+        ),
+        "Bô bô",
+    ),
+
+    # Từ đánh thức NextFarm ở đầu câu.
+    (
+        (
+            r"^(?:"
+            r"Next\s*Farm|"
+            r"Nex\s*Farm|"
+            r"Nét\s*Farm|"
+            r"Net\s*Farm|"
+            r"Lake\s*Farm|"
+            r"Next\s*Pham|"
+            r"Nét\s*Pham|"
+            r"Net\s*Pham"
+            r")\s+ơi\b"
+        ),
+        "NextFarm ơi",
+    ),
+
     # Urê
     (
         r"\bU[-\s]?Ray\b",

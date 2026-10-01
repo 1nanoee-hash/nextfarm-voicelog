@@ -9,9 +9,15 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from app.core.config import settings
 from app.responses.api_response import ApiResponse
 from app.schemas.dynamic_form import OperationType
-from app.services.audio_preprocessing import reduce_noise
+from app.services.audio_preprocessing import (
+    reduce_noise,
+    reduce_noise_for_wake,
+)
 from app.services.dynamic_form_service import extract_dynamic_form
-from app.services.transcribe import transcribe_audio
+from app.services.transcribe import (
+    transcribe_audio,
+    transcribe_wake_audio,
+)
 from app.utils.logger import logger
 
 
@@ -30,6 +36,143 @@ ALLOWED_EXTENSIONS = {
     ".ogg",
     ".webm",
 }
+
+
+@router.post(
+    "/transcribe",
+    response_model=ApiResponse,
+)
+async def transcribe_audio_only(
+    file: UploadFile = File(...),
+    use_noise_reduction: bool = Form(True),
+) -> ApiResponse:
+    # Transcribe a short audio segment without Gemini/Dynamic Form.
+
+    original_filename = file.filename
+
+    if not original_filename:
+        raise HTTPException(
+            status_code=400,
+            detail="File name is missing.",
+        )
+
+    extension = Path(
+        original_filename
+    ).suffix.lower()
+
+    if extension not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Only MP3, WAV, M4A, OGG, and WEBM "
+                "audio files are allowed."
+            ),
+        )
+
+    stored_filename = (
+        f"wake_{uuid.uuid4()}{extension}"
+    )
+
+    file_path = (
+        UPLOAD_DIR /
+        stored_filename
+    )
+
+    cleaned_audio_path: (
+        Path | None
+    ) = None
+
+    try:
+        try:
+            with file_path.open(
+                "wb"
+            ) as buffer:
+                shutil.copyfileobj(
+                    file.file,
+                    buffer,
+                )
+
+        finally:
+            await file.close()
+
+        audio_path_for_whisper = (
+            file_path
+        )
+
+        if use_noise_reduction:
+            cleaned_audio_path = (
+                reduce_noise_for_wake(
+                    file_path
+                )
+            )
+
+            audio_path_for_whisper = (
+                cleaned_audio_path
+            )
+
+        transcript = (
+            transcribe_wake_audio(
+                audio_path_for_whisper
+            )
+        )
+
+        if not transcript.strip():
+            return ApiResponse(
+                success=True,
+                message=(
+                    "No confident wake speech detected."
+                ),
+                data={
+                    "transcript": "",
+                    "noise_reduction_applied":
+                        use_noise_reduction,
+                    "rejected_as_noise":
+                        True,
+                },
+            )
+
+        return ApiResponse(
+            success=True,
+            message=(
+                "Audio transcribed successfully."
+            ),
+            data={
+                "transcript":
+                    transcript,
+
+                "noise_reduction_applied":
+                    use_noise_reduction,
+            },
+        )
+
+    finally:
+        temporary_paths = [
+            cleaned_audio_path,
+            file_path,
+        ]
+
+        for temporary_path in (
+            temporary_paths
+        ):
+            if (
+                temporary_path is None or
+                not temporary_path.exists()
+            ):
+                continue
+
+            try:
+                temporary_path.unlink()
+
+            except OSError:
+                logger.exception(
+                    (
+                        "Failed to delete "
+                        "hands-free temporary audio | "
+                        "path=%s"
+                    ),
+                    temporary_path,
+                )
+
 
 
 @router.post(

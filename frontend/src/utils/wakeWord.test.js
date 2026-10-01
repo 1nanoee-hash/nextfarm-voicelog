@@ -8,37 +8,36 @@ import {
 
 assert.equal(
   normalizeWakeWordText(
-    "  NextFarm ƠI!!! "
+    "  BÔ BÔ!!! "
   ),
-  "nextfarm oi"
+  "bô bô"
 );
 
 for (
   const phrase of [
-    "NextFarm ơi",
-    "Next Farm ơi",
-    "Nét farm ơi",
-    "Nest farm ơi",
-    "Next pham ơi",
-    "Nét pham ơi",
-    "Nex fam ơi",
+    "Bô bô",
+    "bô bô",
+    "BÔ BÔ",
+    "Bồ bồ",
+    "Bộ bộ",
+    "Bo bo",
+    "Bobo",
+    "Bông bông",
+    "Bô bô ơi",
   ]
 ) {
-  assert.deepEqual(
+  assert.equal(
     extractWakeWordCommand(
       phrase
-    ),
-    {
-      matched: true,
-      command: "",
-    },
+    ).matched,
+    true,
     phrase
   );
 }
 
 assert.deepEqual(
   extractWakeWordCommand(
-    "NextFarm ơi thu hoạch lô A 20 kg"
+    "Bô bô thu hoạch lô A 20 kg"
   ),
   {
     matched: true,
@@ -47,24 +46,13 @@ assert.deepEqual(
   }
 );
 
-assert.deepEqual(
-  extractWakeWordCommand(
-    "Nét pham ơi cho tôi xem nhật ký gần nhất"
-  ),
-  {
-    matched: true,
-    command:
-      "cho tôi xem nhật ký gần nhất",
-  }
-);
-
 for (
   const phrase of [
-    "Cho tôi xem nhật ký NextFarm",
-    "NextFarm",
-    "Best farm ơi",
-    "Test farm ơi",
-    "Hôm nay thời tiết thế nào",
+    "NextFarm ơi",
+    "Nông trại ơi",
+    "Bò bò",
+    "Con bò đang ăn cỏ",
+    "Cho tôi xem nhật ký",
   ]
 ) {
   assert.deepEqual(
@@ -80,5 +68,5 @@ for (
 }
 
 console.log(
-  "Wake word V2 tests passed."
+  "Wake word Bo Bo tests passed."
 );

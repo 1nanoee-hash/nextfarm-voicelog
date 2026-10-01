@@ -604,3 +604,104 @@ def test_upload_rejects_invalid_operation() -> None:
     assert body["message"] == (
         "Request validation failed."
     )
+
+
+def test_transcribe_only_success(
+    mocker,
+) -> None:
+    transcript = (
+        "Bô bô"
+    )
+
+    mocker.patch(
+        "app.routers.audio.reduce_noise_for_wake",
+        return_value=Path(
+            "uploads/cleaned-wake.wav"
+        ),
+    )
+
+    mocked_transcribe = mocker.patch(
+        "app.routers.audio.transcribe_wake_audio",
+        return_value=transcript,
+    )
+
+    fake_audio = BytesIO(
+        b"fake wake audio"
+    )
+
+    response = client.post(
+        "/api/v1/audio/transcribe",
+        data={
+            "use_noise_reduction":
+                "true",
+        },
+        files={
+            "file": (
+                "wake.webm",
+                fake_audio,
+                "audio/webm",
+            )
+        },
+    )
+
+    assert response.status_code == 200
+
+    body = response.json()
+
+    assert body["success"] is True
+
+    assert (
+        body["data"]["transcript"]
+        == transcript
+    )
+
+    assert (
+        body["data"][
+            "noise_reduction_applied"
+        ]
+        is True
+    )
+
+    mocked_transcribe.assert_called_once()
+
+
+def test_transcribe_only_ignores_low_confidence_audio(
+    mocker,
+) -> None:
+    mocker.patch(
+        "app.routers.audio.reduce_noise_for_wake",
+        return_value=Path(
+            "uploads/cleaned-noise.wav"
+        ),
+    )
+
+    mocker.patch(
+        "app.routers.audio.transcribe_wake_audio",
+        return_value="",
+    )
+
+    fake_audio = BytesIO(
+        b"fake fan noise"
+    )
+
+    response = client.post(
+        "/api/v1/audio/transcribe",
+        data={
+            "use_noise_reduction":
+                "true",
+        },
+        files={
+            "file": (
+                "noise.webm",
+                fake_audio,
+                "audio/webm",
+            )
+        },
+    )
+
+    assert response.status_code == 200
+
+    body = response.json()
+
+    assert body["success"] is True
+    assert body["data"]["transcript"] == ""

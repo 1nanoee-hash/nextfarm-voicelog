@@ -63,6 +63,8 @@ function RecordButton({
   isConfirmed = false,
   text,
   language = "vi",
+  externalStartSignal = 0,
+  onRecordingComplete,
 }) {
   const isVietnamese =
     language === "vi";
@@ -147,6 +149,11 @@ function RecordButton({
 
   const keyboardPressRef =
     useRef(false);
+
+  const lastExternalStartSignalRef =
+    useRef(
+      externalStartSignal
+    );
 
   /*
    * Voice Activity Detection: watches the live stream and auto-stops the
@@ -328,6 +335,10 @@ function RecordButton({
     setAudioBlob?.(blob);
     setAudioUrl?.(url);
 
+    onRecordingComplete?.(
+      blob
+    );
+
     releaseRecorder();
 
     showMessage(
@@ -404,6 +415,19 @@ function RecordButton({
       );
     }
   };
+
+  const stopAutomaticRecording =
+    () => {
+      pressActiveRef.current =
+        false;
+
+      if (mountedRef.current) {
+        setIsHolding(false);
+        setIsRecording(false);
+      }
+
+      stopRecording();
+    };
 
   /*
    * First interaction only:
@@ -613,10 +637,8 @@ function RecordButton({
         recorder.start(250);
 
         // Timestamp is captured only when recording starts, not during render.
-        /* eslint-disable react-hooks/purity */
         recordingStartedAtRef.current =
           Date.now();
-        /* eslint-enable react-hooks/purity */
 
         elapsedSecondsRef.current =
           0;
@@ -685,7 +707,7 @@ function RecordButton({
             minSpeechMs:
               MIN_SPEECH_MS,
             onSilenceTimeout: () => {
-              endPress();
+              stopAutomaticRecording();
             },
           });
 
@@ -693,7 +715,7 @@ function RecordButton({
 
         maxDurationTimerRef.current =
           window.setTimeout(() => {
-            endPress();
+            stopAutomaticRecording();
           }, MAX_RECORDING_MS);
 
         /*
@@ -771,6 +793,44 @@ function RecordButton({
 
     void startRecording();
   };
+
+  /* External wake signal starts the SAME main recorder button. */
+  /* eslint-disable react-hooks/exhaustive-deps -- startRecording intentionally uses current refs/state */
+  useEffect(() => {
+    if (
+      !externalStartSignal ||
+      externalStartSignal ===
+        lastExternalStartSignalRef.current
+    ) {
+      return;
+    }
+
+    lastExternalStartSignalRef.current =
+      externalStartSignal;
+
+    if (
+      isConfirmed ||
+      permissionInFlightRef.current ||
+      startingRecordingRef.current ||
+      recorderRef.current ||
+      pressActiveRef.current
+    ) {
+      return;
+    }
+
+    pressActiveRef.current =
+      true;
+
+    if (mountedRef.current) {
+      setIsHolding(true);
+    }
+
+    void startRecording();
+  }, [
+    externalStartSignal,
+    isConfirmed,
+  ]);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   const endPress = () => {
     /*

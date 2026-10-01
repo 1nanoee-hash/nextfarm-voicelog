@@ -50,7 +50,7 @@ export function stopMediaStream(
     });
 }
 
-export async function requestMicrophoneStream() {
+export async function requestMicrophoneStream(options = {}) {
   if (
     typeof window === "undefined" ||
     typeof navigator === "undefined"
@@ -76,6 +76,11 @@ export async function requestMicrophoneStream() {
     );
   }
 
+  const wakeWordMode =
+    Boolean(
+      options?.wakeWord
+    );
+
   const preferredConstraints = {
     audio: {
       echoCancellation: {
@@ -87,12 +92,21 @@ export async function requestMicrophoneStream() {
       },
 
       autoGainControl: {
-        ideal: true,
+        ideal:
+          !wakeWordMode,
       },
 
       channelCount: {
         ideal: 1,
       },
+
+      ...(wakeWordMode
+        ? {
+            sampleRate: {
+              ideal: 16000,
+            },
+          }
+        : {}),
     },
 
     video: false,
@@ -143,11 +157,17 @@ export async function requestMicrophoneStream() {
  */
 export function createSilenceDetector({
   stream,
+  onSpeechStart,
   onSilenceTimeout,
   silenceThreshold = 0.015,
   silenceDurationMs = 1400,
   minSpeechMs = 250,
-  checkIntervalMs = 100,
+  checkIntervalMs = 80,
+  adaptiveNoise = false,
+  calibrationMs = 450,
+  noiseMultiplier = 1.7,
+  noiseOffset = 0.006,
+  maxAdaptiveThreshold = 0.20,
 }) {
   if (typeof window === "undefined") {
     return null;
@@ -163,18 +183,69 @@ export function createSilenceDetector({
 
   let audioContext;
   let source;
+  let highPass;
+  let lowPass;
   let analyser;
 
   try {
-    audioContext = new AudioContextClass();
-    source = audioContext.createMediaStreamSource(stream);
-    analyser = audioContext.createAnalyser();
-    analyser.fftSize = 1024;
-    analyser.smoothingTimeConstant = 0.85;
-    source.connect(analyser);
+    audioContext =
+      new AudioContextClass();
+
+    source =
+      audioContext.createMediaStreamSource(
+        stream
+      );
+
+    /*
+     * Chỉ dùng cho VAD:
+     * bỏ bớt tiếng gió/quạt tần số thấp và nhiễu cao tần.
+     * Audio ghi thật vẫn giữ nguyên stream.
+     */
+    highPass =
+      audioContext.createBiquadFilter();
+
+    highPass.type =
+      "highpass";
+
+    highPass.frequency.value =
+      140;
+
+    highPass.Q.value =
+      0.707;
+
+    lowPass =
+      audioContext.createBiquadFilter();
+
+    lowPass.type =
+      "lowpass";
+
+    lowPass.frequency.value =
+      4200;
+
+    lowPass.Q.value =
+      0.707;
+
+    analyser =
+      audioContext.createAnalyser();
+
+    analyser.fftSize =
+      1024;
+
+    analyser.smoothingTimeConstant =
+      0.65;
+
+    source.connect(
+      highPass
+    );
+
+    highPass.connect(
+      lowPass
+    );
+
+    lowPass.connect(
+      analyser
+    );
   } catch {
-    // Some browsers refuse to build an AudioContext from a MediaStream in
-    // certain states; treat this the same as "unsupported".
     try {
       audioContext?.close();
     } catch {
@@ -184,11 +255,17 @@ export function createSilenceDetector({
     return null;
   }
 
-  const dataArray = new Uint8Array(
-    analyser.fftSize
-  );
+  const dataArray =
+    new Uint8Array(
+      analyser.fftSize
+    );
 
-  let speechDetectedAt = null;
+  const detectorStartedAt =
+    Date.now();
+
+  let noiseFloor = null;
+  let soundStartedAt = null;
+  let speechConfirmed = false;
   let silenceStartedAt = null;
   let intervalId = null;
   let stopped = false;
@@ -201,58 +278,155 @@ export function createSilenceDetector({
     let sumSquares = 0;
 
     for (
-      let i = 0;
-      i < dataArray.length;
-      i += 1
+      let index = 0;
+      index < dataArray.length;
+      index += 1
     ) {
       const normalized =
-        (dataArray[i] - 128) / 128;
+        (dataArray[index] - 128) /
+        128;
 
       sumSquares +=
-        normalized * normalized;
+        normalized *
+        normalized;
     }
 
     return Math.sqrt(
-      sumSquares / dataArray.length
+      sumSquares /
+      dataArray.length
     );
   };
+
+  const updateNoiseFloor =
+    (rms, weight) => {
+      if (
+        noiseFloor === null
+      ) {
+        noiseFloor = rms;
+
+        return;
+      }
+
+      noiseFloor =
+        noiseFloor *
+          (1 - weight) +
+        rms *
+          weight;
+    };
+
+  const getCurrentThreshold =
+    () => {
+      if (
+        !adaptiveNoise ||
+        noiseFloor === null
+      ) {
+        return silenceThreshold;
+      }
+
+      return Math.min(
+        maxAdaptiveThreshold,
+        Math.max(
+          silenceThreshold,
+          noiseFloor *
+            noiseMultiplier +
+            noiseOffset
+        )
+      );
+    };
 
   const tick = () => {
     if (stopped) {
       return;
     }
 
-    const rms = computeRms();
-    const now = Date.now();
+    const rms =
+      computeRms();
 
-    if (rms >= silenceThreshold) {
-      if (!speechDetectedAt) {
-        speechDetectedAt = now;
-      }
+    const now =
+      Date.now();
 
-      silenceStartedAt = null;
+    if (
+      adaptiveNoise &&
+      !speechConfirmed &&
+      now -
+        detectorStartedAt <
+        calibrationMs
+    ) {
+      updateNoiseFloor(
+        rms,
+        0.18
+      );
+
+      soundStartedAt =
+        null;
 
       return;
     }
 
+    const threshold =
+      getCurrentThreshold();
+
     if (
-      !speechDetectedAt ||
-      now - speechDetectedAt <
-        minSpeechMs
+      adaptiveNoise &&
+      !speechConfirmed &&
+      rms < threshold
     ) {
-      // Not enough confirmed speech yet — ambient noise/silence at the
-      // start of the recording should not trigger an auto-stop.
+      /*
+       * Theo dõi tiếng nền chậm để thích nghi khi quạt/gió
+       * thay đổi, nhưng không đuổi theo giọng nói.
+       */
+      updateNoiseFloor(
+        rms,
+        0.025
+      );
+    }
+
+    if (rms >= threshold) {
+      if (!soundStartedAt) {
+        soundStartedAt =
+          now;
+      }
+
+      if (
+        !speechConfirmed &&
+        now -
+          soundStartedAt >=
+          minSpeechMs
+      ) {
+        speechConfirmed =
+          true;
+
+        onSpeechStart?.();
+      }
+
+      if (speechConfirmed) {
+        silenceStartedAt =
+          null;
+      }
+
+      return;
+    }
+
+    if (!speechConfirmed) {
+      /*
+       * Một tiếng động/gió ngắn không được cộng dồn thành lời nói.
+       */
+      soundStartedAt =
+        null;
+
       return;
     }
 
     if (!silenceStartedAt) {
-      silenceStartedAt = now;
+      silenceStartedAt =
+        now;
 
       return;
     }
 
     if (
-      now - silenceStartedAt >=
+      now -
+        silenceStartedAt >=
       silenceDurationMs
     ) {
       stopped = true;
@@ -267,10 +441,11 @@ export function createSilenceDetector({
     }
   };
 
-  intervalId = window.setInterval(
-    tick,
-    checkIntervalMs
-  );
+  intervalId =
+    window.setInterval(
+      tick,
+      checkIntervalMs
+    );
 
   return {
     destroy: () => {
@@ -291,6 +466,18 @@ export function createSilenceDetector({
       }
 
       try {
+        highPass.disconnect();
+      } catch {
+        // Ignore cleanup error.
+      }
+
+      try {
+        lowPass.disconnect();
+      } catch {
+        // Ignore cleanup error.
+      }
+
+      try {
         analyser.disconnect();
       } catch {
         // Ignore cleanup error.
@@ -304,6 +491,7 @@ export function createSilenceDetector({
     },
   };
 }
+
 
 export function getRecordingErrorMessage(
   error,

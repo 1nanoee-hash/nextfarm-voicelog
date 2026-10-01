@@ -1,21 +1,15 @@
-const WAKE_WORD_COMPACT_VARIANTS =
+const WAKE_VARIANTS =
   new Set([
-    "nextfarm",
-    "nexfarm",
-    "netfarm",
-    "nestfarm",
-    "nextpham",
-    "nexpham",
-    "netpham",
-    "nestpham",
-    "nextform",
-    "nexform",
-    "netform",
-    "nextfam",
-    "nexfam",
-    "netfam",
-    "nextfan",
-    "nexfan",
+    "bôbô",
+    "bôbồ",
+    "bồbô",
+    "bồbồ",
+    "bộbộ",
+    "bôbộ",
+    "bộbô",
+    "bobo",
+    "bôngbông",
+    "bongbong",
   ]);
 
 
@@ -26,14 +20,9 @@ export function normalizeWakeWordText(
     value ?? ""
   )
     .toLowerCase()
-    .normalize("NFD")
+    .normalize("NFC")
     .replace(
-      /[\u0300-\u036f]/g,
-      ""
-    )
-    .replace(/đ/g, "d")
-    .replace(
-      /[^a-z0-9\s]/g,
+      /[^\p{L}\p{N}\s]/gu,
       " "
     )
     .replace(/\s+/g, " ")
@@ -41,139 +30,31 @@ export function normalizeWakeWordText(
 }
 
 
-function levenshteinDistance(
-  left,
-  right
+function getWakeWordCount(
+  words
 ) {
-  const a =
-    String(left ?? "");
-
-  const b =
-    String(right ?? "");
-
-  if (a === b) {
+  if (!words.length) {
     return 0;
   }
 
-  if (!a.length) {
-    return b.length;
-  }
-
-  if (!b.length) {
-    return a.length;
-  }
-
-  let previous =
-    Array.from(
-      {
-        length:
-          b.length + 1,
-      },
-      (_, index) =>
-        index
-    );
-
-  for (
-    let row = 1;
-    row <= a.length;
-    row += 1
-  ) {
-    const current = [
-      row,
-    ];
-
-    for (
-      let column = 1;
-      column <= b.length;
-      column += 1
-    ) {
-      const cost =
-        a[row - 1] ===
-        b[column - 1]
-          ? 0
-          : 1;
-
-      current[column] =
-        Math.min(
-          current[
-            column - 1
-          ] + 1,
-          previous[
-            column
-          ] + 1,
-          previous[
-            column - 1
-          ] + cost
-        );
-    }
-
-    previous =
-      current;
-  }
-
-  return previous[
-    b.length
-  ];
-}
-
-
-function isLikelyWakeName(
-  compactValue
-) {
-  const compact =
-    String(
-      compactValue ?? ""
-    );
-
   if (
-    !compact ||
-    !compact.startsWith("n")
+    WAKE_VARIANTS.has(
+      words[0]
+    )
   ) {
-    return false;
+    return 1;
   }
 
   if (
-    WAKE_WORD_COMPACT_VARIANTS
-      .has(compact)
+    words.length >= 2 &&
+    WAKE_VARIANTS.has(
+      `${words[0]}${words[1]}`
+    )
   ) {
-    return true;
+    return 2;
   }
 
-  if (
-    compact.length < 6 ||
-    compact.length > 10
-  ) {
-    return false;
-  }
-
-  const looksLikeFarmWord =
-    compact.includes("farm") ||
-    compact.includes("form") ||
-    compact.includes("fam") ||
-    compact.includes("fan") ||
-    compact.includes("pham");
-
-  if (!looksLikeFarmWord) {
-    return false;
-  }
-
-  const distance =
-    levenshteinDistance(
-      compact,
-      "nextfarm"
-    );
-
-  const similarity =
-    1 -
-    distance /
-      Math.max(
-        compact.length,
-        "nextfarm".length
-      );
-
-  return (
-    similarity >= 0.84
-  );
+  return 0;
 }
 
 
@@ -203,38 +84,30 @@ export function extractWakeWordCommand(
   const originalWords =
     original.split(/\s+/);
 
-  const oiIndex =
-    normalizedWords
-      .slice(0, 4)
-      .findIndex(
-        (word) =>
-          word === "oi"
-      );
+  const wakeWordCount =
+    getWakeWordCount(
+      normalizedWords
+    );
 
-  if (oiIndex <= 0) {
+  if (!wakeWordCount) {
     return {
       matched: false,
       command: "",
     };
   }
 
-  const wakeName =
-    normalizedWords
-      .slice(
-        0,
-        oiIndex
-      )
-      .join("");
+  let commandStart =
+    wakeWordCount;
 
   if (
-    !isLikelyWakeName(
-      wakeName
-    )
+    normalizedWords[
+      commandStart
+    ] === "ơi" ||
+    normalizedWords[
+      commandStart
+    ] === "oi"
   ) {
-    return {
-      matched: false,
-      command: "",
-    };
+    commandStart += 1;
   }
 
   return {
@@ -242,7 +115,7 @@ export function extractWakeWordCommand(
     command:
       originalWords
         .slice(
-          oiIndex + 1
+          commandStart
         )
         .join(" ")
         .trim(),

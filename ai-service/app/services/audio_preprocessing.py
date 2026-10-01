@@ -82,3 +82,100 @@ def reduce_noise(audio_path: Path) -> Path:
     )
 
     return output_path
+
+def reduce_noise_for_wake(
+    audio_path: Path,
+) -> Path:
+    """
+    Clean a short wake-word clip.
+
+    More aggressive than the normal farming-log filter:
+    - cut low-frequency fan/wind rumble,
+    - cut unnecessary high frequencies,
+    - reduce stationary background noise.
+    """
+
+    if not audio_path.exists():
+        raise FileNotFoundError(
+            f"Audio file not found: {audio_path}"
+        )
+
+    output_path = audio_path.with_name(
+        (
+            f"{audio_path.stem}"
+            f"_wake_clean_"
+            f"{uuid.uuid4().hex[:8]}.wav"
+        )
+    )
+
+    audio_filter = (
+        "highpass=f=120,"
+        "lowpass=f=4200,"
+        "afftdn=nr=12"
+    )
+
+    command = [
+        "ffmpeg",
+        "-y",
+        "-i",
+        str(audio_path),
+        "-af",
+        audio_filter,
+        "-ac",
+        "1",
+        "-ar",
+        "16000",
+        str(output_path),
+    ]
+
+    logger.info(
+        (
+            "Wake audio cleanup started | "
+            "input=%s | output=%s"
+        ),
+        audio_path,
+        output_path,
+    )
+
+    try:
+        subprocess.run(
+            command,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+    except FileNotFoundError as exc:
+        raise RuntimeError(
+            (
+                "FFmpeg is not installed "
+                "or is not available in PATH."
+            )
+        ) from exc
+
+    except subprocess.CalledProcessError as exc:
+        logger.error(
+            (
+                "Wake audio cleanup failed | "
+                "stderr=%s"
+            ),
+            exc.stderr,
+        )
+
+        raise RuntimeError(
+            (
+                "FFmpeg wake cleanup failed: "
+                f"{exc.stderr}"
+            )
+        ) from exc
+
+    if not output_path.exists():
+        raise RuntimeError(
+            (
+                "FFmpeg completed but the "
+                "wake cleaned audio file "
+                "was not created."
+            )
+        )
+
+    return output_path
