@@ -34,7 +34,12 @@ class Settings:
 
     GEMINI_MODEL: str = os.getenv(
         "GEMINI_MODEL",
-        "gemini-3.1-flash-lite",
+        "gemini-3.5-flash-lite",
+    )
+
+    GEMINI_FALLBACK_MODEL: str = os.getenv(
+        "GEMINI_FALLBACK_MODEL",
+        "gemini-3.5-flash",
     )
 
     # Whisper

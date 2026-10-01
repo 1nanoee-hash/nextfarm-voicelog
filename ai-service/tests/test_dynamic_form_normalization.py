@@ -95,7 +95,7 @@ def test_plot_requires_boundary():
         is True
     )
     assert result["next_question"] == (
-        "Bạn cần vẽ ranh giới lô trên bản đồ để tiếp tục."
+        "Lô này có cần xác định ranh giới trên bản đồ không?"
     )
 
 

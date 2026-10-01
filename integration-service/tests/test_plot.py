@@ -988,6 +988,40 @@ def test_resolve_cultivation_can_use_created_plot(
     )
 
 
+def test_create_plot_allows_missing_geometry_when_boundary_required(
+    client: TestClient,
+) -> None:
+    payload = build_valid_plot(
+        "plot-boundary-no-geometry-001"
+    )
+
+    payload["plot_name_or_code"] = (
+        "Vuon Boundary No Geometry"
+    )
+
+    payload["boundary_required"] = True
+    payload["geometry"] = None
+
+    response = client.post(
+        "/api/plots",
+        json=payload,
+    )
+
+    assert response.status_code == 201
+
+    data = response.json()["data"]
+
+    assert (
+        data["boundary_required"]
+        is True
+    )
+
+    assert (
+        data["geometry"]
+        is None
+    )
+
+
 def test_create_plot_with_geometry(
     client: TestClient,
 ) -> None:
