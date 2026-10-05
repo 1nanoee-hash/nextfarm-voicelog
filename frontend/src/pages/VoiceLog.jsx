@@ -1341,11 +1341,74 @@ function VoiceLog({
     };
   };
 
+  const validateWorkLogData = (
+    data,
+    form
+  ) => {
+    const aiValidation =
+      validateAiData(data);
+
+    const dynamicErrors =
+      validateDynamicOperationFields(
+        "CREATE_WORK_LOG",
+        form?.fields || {},
+        isVietnamese
+      );
+
+    const dynamicWarnings =
+      normalizeDynamicFormWarnings(
+        form?.warnings
+      );
+
+    const errors = {
+      ...aiValidation.errors,
+      ...dynamicErrors,
+    };
+
+    const warnings = {
+      ...aiValidation.warnings,
+      ...dynamicWarnings,
+    };
+
+    const hasErrors =
+      Object.keys(
+        errors
+      ).length > 0;
+
+    const hasWarnings =
+      Object.keys(
+        warnings
+      ).length > 0;
+
+    return {
+      ...aiValidation,
+      errors,
+      warnings,
+      hasErrors,
+      hasWarnings,
+
+      requiresConfirmation:
+        Boolean(
+          aiValidation
+            .requiresConfirmation ||
+          (
+            form
+              ?.requires_confirmation &&
+            hasWarnings
+          )
+        ),
+
+      isValid:
+        !hasErrors,
+    };
+  };
+
   const localValidation =
     operation ===
       "CREATE_WORK_LOG"
-      ? validateAiData(
-          aiData
+      ? validateWorkLogData(
+          aiData,
+          dynamicForm
         )
       : (() => {
           const errors =
@@ -1546,6 +1609,100 @@ function VoiceLog({
             },
           ];
 
+    const restoredDynamicMaterials =
+      restoredMaterials.map(
+        (item) => ({
+          material_text:
+            item.material || "",
+
+          quantity:
+            item.quantity ?? "",
+
+          unit_text:
+            item.unit || "",
+        })
+      );
+
+    /*
+      DynamicForm is the visible editor for CREATE_WORK_LOG.
+      Restoring only aiData leaves the form blank even though
+      the saved log was loaded correctly. Keep both states in sync
+      when an existing cultivation log is opened for editing.
+    */
+    const restoredOperation =
+      "CREATE_WORK_LOG";
+
+    const restoredDynamicForm =
+      createEmptyDynamicForm(
+        restoredOperation
+      );
+
+    const restoredResultStatus =
+      logToEdit.result_status ??
+      logToEdit.resultStatus ??
+      null;
+
+    setOperation(
+      restoredOperation
+    );
+
+    setDynamicForm({
+      ...restoredDynamicForm,
+
+      fields: {
+        ...restoredDynamicForm.fields,
+
+        plot_text:
+          logToEdit.lot || "",
+
+        activity_text:
+          logToEdit.work || "",
+
+        performed_time_text:
+          logToEdit.time || "",
+
+        materials:
+          restoredDynamicMaterials,
+
+        result_status:
+          restoredResultStatus,
+
+        photo_required:
+          logToEdit.photo_required ??
+          logToEdit.photoRequired ??
+          null,
+
+        material_batch_text:
+          logToEdit.material_batch_text ??
+          logToEdit.materialBatchText ??
+          "",
+
+        note:
+          logToEdit.note ??
+          logToEdit.notes ??
+          "",
+      },
+
+      missing_fields:
+        restoredResultStatus
+          ? []
+          : ["result_status"],
+
+      warnings: [],
+
+      field_confidence: {
+        plot_text: 1,
+        activity_text: 1,
+        performed_time_text: 1,
+      },
+
+      requires_confirmation:
+        false,
+
+      next_question:
+        null,
+    });
+
     setAiData({
       ...createEmptyAiData(),
 
@@ -1632,7 +1789,10 @@ function VoiceLog({
               "---"
             } needs review. Correct the highlighted fields before confirming.`,
       });
-    } else {
+    } else if (
+      logToEdit.status ===
+      "draft"
+    ) {
       setMessage({
         type: "success",
 
@@ -1645,6 +1805,20 @@ function VoiceLog({
               logToEdit.lot ||
               "---"
             } has been restored.`,
+      });
+    } else {
+      setMessage({
+        type: "success",
+
+        text: isVietnamese
+          ? `✏️ Đang chỉnh sửa nhật ký đã hoàn thành của lô ${
+              logToEdit.lot ||
+              "---"
+            }.`
+          : `✏️ Editing the completed log for plot ${
+              logToEdit.lot ||
+              "---"
+            }.`,
       });
     }
 
@@ -2387,8 +2561,9 @@ function VoiceLog({
       }
 
       const currentValidation =
-        validateAiData(
-          aiData
+        validateWorkLogData(
+          aiData,
+          dynamicForm
         );
 
       if (
@@ -2844,6 +3019,11 @@ function VoiceLog({
           transcript:
             transcript.trim(),
 
+          result_status:
+            dynamicForm?.fields
+              ?.result_status ||
+            null,
+
           lot_code:
             lotResult.code,
 
@@ -2858,7 +3038,20 @@ function VoiceLog({
           performer_code:
             null,
 
+          material_batch_text:
+            String(
+              dynamicForm?.fields
+                ?.material_batch_text ||
+                ""
+            ).trim() ||
+            null,
+
           notes:
+            String(
+              dynamicForm?.fields
+                ?.note ||
+                ""
+            ).trim() ||
             null,
 
           source:
@@ -3021,6 +3214,38 @@ function VoiceLog({
 
           transcript:
             transcript.trim(),
+
+          resultStatus:
+            dynamicForm?.fields
+              ?.result_status ||
+            null,
+
+          result_status:
+            dynamicForm?.fields
+              ?.result_status ||
+            null,
+
+          materialBatchText:
+            String(
+              dynamicForm?.fields
+                ?.material_batch_text ||
+                ""
+            ).trim(),
+
+          material_batch_text:
+            String(
+              dynamicForm?.fields
+                ?.material_batch_text ||
+                ""
+            ).trim(),
+
+          notes:
+            String(
+              dynamicForm?.fields
+                ?.note ||
+                ""
+            ).trim() ||
+            null,
 
           status:
             "completed",

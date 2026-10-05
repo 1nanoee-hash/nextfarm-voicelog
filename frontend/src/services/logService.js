@@ -319,6 +319,22 @@ function normalizeBackendLog(
       log?.transcript ??
       "",
 
+    resultStatus:
+      log?.result_status ??
+      null,
+
+    result_status:
+      log?.result_status ??
+      null,
+
+    materialBatchText:
+      log?.material_batch_text ??
+      "",
+
+    material_batch_text:
+      log?.material_batch_text ??
+      "",
+
     createdAt:
       log?.created_at ??
       log?.performed_at ??
