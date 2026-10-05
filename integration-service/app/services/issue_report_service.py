@@ -14,7 +14,7 @@ from app.schemas.issue_report import (
     IssueReportInput,
 )
 from app.services.normalization_service import (
-    resolve_master_data,
+    normalize_text,
 )
 from app.services.plot_master_data_service import (
     resolve_plot_text,
@@ -59,6 +59,70 @@ def normalize_allowed_value(
     for canonical_value in allowed_values:
         if canonical_value.casefold() == normalized:
             return canonical_value
+
+    return None
+
+
+def normalize_issue_type_value(
+    value: str,
+) -> str | None:
+    """
+    Normalize issue type while accepting a specific
+    issue phrase that clearly belongs to exactly one
+    canonical category.
+
+    Examples:
+        "Bệnh" -> "Bệnh"
+        "bệnh đốm lá" -> "Bệnh"
+        "benh dom la" -> "Bệnh"
+        "sâu ăn lá" -> "Sâu"
+
+    If a phrase mentions more than one canonical
+    category (for example "sâu bệnh"), it remains
+    ambiguous and must be corrected by the user.
+    """
+
+    exact_match = normalize_allowed_value(
+        value,
+        ALLOWED_ISSUE_TYPES,
+    )
+
+    if exact_match is not None:
+        return exact_match
+
+    normalized_input = normalize_text(
+        str(value or "")
+    )
+
+    if not normalized_input:
+        return None
+
+    padded_input = (
+        f" {normalized_input} "
+    )
+
+    matches = []
+
+    for canonical_value in (
+        ALLOWED_ISSUE_TYPES
+    ):
+        normalized_category = (
+            normalize_text(
+                canonical_value
+            )
+        )
+
+        category_token = (
+            f" {normalized_category} "
+        )
+
+        if category_token in padded_input:
+            matches.append(
+                canonical_value
+            )
+
+    if len(matches) == 1:
+        return matches[0]
 
     return None
 
@@ -144,9 +208,8 @@ def build_issue_report_input(
     - tự sinh description
     """
 
-    issue_type = normalize_allowed_value(
+    issue_type = normalize_issue_type_value(
         request.issue_type_text,
-        ALLOWED_ISSUE_TYPES,
     )
 
     if issue_type is None:

@@ -1,6 +1,10 @@
 ﻿function TranscriptBox({
   transcript,
   onTranscriptChange,
+  needsReanalysis = false,
+  isReanalyzing = false,
+  onReanalyze,
+  reanalyzeText = {},
   isConfirmed = false,
   text,
 }) {
@@ -39,6 +43,27 @@
         aria-label={text.transcript.ariaLabel}
         autoComplete="off"
       />
+
+      {needsReanalysis &&
+        hasTranscript &&
+        !isConfirmed && (
+          <div className="transcript-reanalysis">
+            <span>
+              {reanalyzeText.hint}
+            </span>
+
+            <button
+              type="button"
+              className="transcript-reanalyze-btn"
+              onClick={onReanalyze}
+              disabled={isReanalyzing}
+            >
+              {isReanalyzing
+                ? reanalyzeText.loading
+                : reanalyzeText.action}
+            </button>
+          </div>
+        )}
 
       {!hasTranscript && (
         <p className="transcript-hint">

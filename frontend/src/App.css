@@ -361,6 +361,46 @@ button {
   line-height: 1.5;
 }
 
+.transcript-reanalysis {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+
+  margin-top: 12px;
+  padding: 12px 14px;
+
+  border: 1px solid #ffe082;
+  border-radius: 10px;
+
+  background: #fff8e1;
+  color: #6d5700;
+
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.transcript-reanalyze-btn {
+  flex-shrink: 0;
+
+  padding: 8px 12px;
+
+  border: none;
+  border-radius: 8px;
+
+  background: #2e7d32;
+  color: #ffffff;
+
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+.transcript-reanalyze-btn:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
 /* ===========================
    AI Form
 =========================== */
@@ -12399,5 +12439,39 @@ body.dark-mode
   .hands-free-main-status.compact {
     max-width: 160px;
     font-size: 9px;
+  }
+}
+
+
+/* =========================================================
+   BUG 10 - AI assistant desktop side rail
+   Keep the assistant visible without covering map/form content.
+========================================================= */
+
+@media (min-width: 1360px) {
+  body.ai-assistant-open .app-shell {
+    padding-right: 430px;
+
+    transition:
+      padding-right
+      0.22s ease;
+  }
+
+  body.ai-assistant-open
+  .ai-assistant-panel,
+  body.ai-assistant-open
+  .ai-assistant-floating {
+    right: 20px;
+  }
+}
+
+@media (
+  min-width: 1360px
+) and (
+  max-width: 1599px
+) {
+  body.ai-assistant-open
+  .voice-workspace-grid {
+    grid-template-columns: 1fr;
   }
 }

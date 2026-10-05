@@ -80,6 +80,31 @@ def test_correct_harvest_typo():
     )
 
 
+def test_correct_observed_crop_name_speech_error():
+    assert (
+        correct_transcript(
+            "Tạo cây trồng cà chua pi thuộc nhóm rau ăn quả"
+        )
+        == (
+            "Tạo cây trồng cà chua bi "
+            "thuộc nhóm rau ăn quả"
+        )
+    )
+
+    assert (
+        correct_transcript(
+            "Tạo cây trồng ca chua pi"
+        )
+        == "Tạo cây trồng cà chua bi"
+    )
+
+
+def test_does_not_replace_generic_pi_outside_crop_name():
+    text = "Giá trị pi là 3.14"
+
+    assert correct_transcript(text) == text
+
+
 def test_correct_contextual_weight():
     assert (
         correct_transcript(

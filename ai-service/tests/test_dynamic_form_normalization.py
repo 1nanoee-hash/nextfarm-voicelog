@@ -1,4 +1,5 @@
 from app.services.dynamic_form_service import (
+    _apply_deterministic_followup,
     _normalize_missing_fields,
 )
 
@@ -33,6 +34,93 @@ def test_harvest_complete_clears_stale_missing_field():
         is False
     )
     assert result["next_question"] is None
+
+
+def test_crop_type_terse_explicit_code_fills_expected_code_field():
+    data = {
+        "fields": {
+            "crop_name": "Cà chua bi",
+            "crop_group_text": "Rau ăn quả",
+            "crop_code_suggestion": None,
+            "days_to_harvest": None,
+        },
+        "missing_fields": [
+            "crop_code_suggestion"
+        ],
+        "warnings": [],
+        "field_confidence": {
+            "crop_name": 1.0,
+            "crop_group_text": 1.0,
+            "crop_code_suggestion": None,
+        },
+        "requires_confirmation": True,
+        "next_question": (
+            "Mã gợi ý cho loại cây trồng này là gì?"
+        ),
+    }
+
+    result = _apply_deterministic_followup(
+        operation="CREATE_CROP_TYPE",
+        transcript="CA_CHUA_BI",
+        current_fields={
+            "crop_name": "Cà chua bi",
+            "crop_group_text": "Rau ăn quả",
+            "crop_code_suggestion": None,
+        },
+        data=data,
+    )
+
+    result = _normalize_missing_fields(
+        operation="CREATE_CROP_TYPE",
+        data=result,
+    )
+
+    assert (
+        result["fields"]["crop_code_suggestion"]
+        == "CA_CHUA_BI"
+    )
+
+    assert (
+        result["field_confidence"][
+            "crop_code_suggestion"
+        ]
+        == 1.0
+    )
+
+    assert result["missing_fields"] == []
+    assert (
+        result["requires_confirmation"]
+        is False
+    )
+    assert result["next_question"] is None
+
+
+def test_crop_type_terse_followup_does_not_guess_plain_text_as_code():
+    data = {
+        "fields": {
+            "crop_name": "Cà chua bi",
+            "crop_group_text": "Rau ăn quả",
+            "crop_code_suggestion": None,
+            "days_to_harvest": None,
+        },
+        "field_confidence": {},
+    }
+
+    result = _apply_deterministic_followup(
+        operation="CREATE_CROP_TYPE",
+        transcript="tôi chưa biết",
+        current_fields={
+            "crop_name": "Cà chua bi",
+            "crop_group_text": "Rau ăn quả",
+            "crop_code_suggestion": None,
+        },
+        data=data,
+    )
+
+    assert (
+        result["fields"]["crop_code_suggestion"]
+        is None
+    )
 
 
 def test_crop_type_missing_code_requires_confirmation():

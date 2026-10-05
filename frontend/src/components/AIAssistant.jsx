@@ -36,6 +36,9 @@ const STORAGE_KEY =
 const ACTIVE_CHAT_KEY =
   "nextfarm-ai-active-chat";
 
+const EMPTY_AI_AUDIT_EVENTS =
+  Object.freeze([]);
+
 function createConversation(title = "") {
   return {
     id: generateId(),
@@ -56,7 +59,8 @@ function AIAssistant({
   onApplyAiChanges,
   onApplyDynamicForm,
   onUndoAiChanges,
-  aiAuditEvents = [],
+  aiAuditEvents =
+    EMPTY_AI_AUDIT_EVENTS,
   onDeleteAiAuditEvents,
   onClearAiAuditEvents,
 }) {
@@ -193,6 +197,28 @@ function AIAssistant({
   const currentStatus =
     statusConfig[assistantStatus] ||
     statusConfig.ready;
+
+  /*
+   * On large screens the open assistant gets a dedicated side rail
+   * instead of covering the map or long Dynamic Form content.
+   * The body class is removed both when the panel closes and when
+   * the assistant component unmounts.
+   */
+  useEffect(() => {
+    const bodyClass =
+      "ai-assistant-open";
+
+    document.body.classList.toggle(
+      bodyClass,
+      isOpen
+    );
+
+    return () => {
+      document.body.classList.remove(
+        bodyClass
+      );
+    };
+  }, [isOpen]);
 
   /* ===========================
      Resolve active conversation

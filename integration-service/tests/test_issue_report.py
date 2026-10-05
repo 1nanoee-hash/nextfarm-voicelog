@@ -104,6 +104,89 @@ def test_create_issue_report_normalizes_business_value_capitalization(
     assert report["severity"] == "Nguy cấp"
 
 
+def test_create_issue_report_normalizes_specific_issue_phrase(
+    client: TestClient,
+) -> None:
+    cases = [
+        (
+            "issue-specific-disease-001",
+            "bệnh đốm lá",
+            "Bệnh",
+        ),
+        (
+            "issue-specific-disease-ascii-001",
+            "benh dom la",
+            "Bệnh",
+        ),
+        (
+            "issue-specific-pest-001",
+            "sâu ăn lá",
+            "Sâu",
+        ),
+        (
+            "issue-specific-weather-001",
+            "thời tiết mưa lớn",
+            "Thời tiết",
+        ),
+        (
+            "issue-specific-irrigation-001",
+            "tưới tiêu không đều",
+            "Tưới tiêu",
+        ),
+    ]
+
+    for (
+        client_record_id,
+        issue_type_text,
+        expected_issue_type,
+    ) in cases:
+        payload = build_valid_issue_report(
+            client_record_id
+        )
+
+        payload["issue_type_text"] = (
+            issue_type_text
+        )
+
+        response = client.post(
+            "/api/issue-reports",
+            json=payload,
+        )
+
+        assert response.status_code == 201
+
+        assert (
+            response.json()["data"]["issue_type"]
+            == expected_issue_type
+        )
+
+
+def test_create_issue_report_rejects_ambiguous_issue_phrase(
+    client: TestClient,
+) -> None:
+    payload = build_valid_issue_report(
+        "issue-ambiguous-type-001"
+    )
+
+    payload["issue_type_text"] = (
+        "sâu bệnh"
+    )
+
+    response = client.post(
+        "/api/issue-reports",
+        json=payload,
+    )
+
+    assert response.status_code == 400
+
+    detail = response.json()["detail"]
+
+    assert (
+        detail["reason_code"]
+        == "INVALID_ISSUE_TYPE"
+    )
+
+
 def test_create_issue_report_resolves_plot_text(
     client: TestClient,
 ) -> None:

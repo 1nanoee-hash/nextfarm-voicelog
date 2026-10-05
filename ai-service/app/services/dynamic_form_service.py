@@ -1,4 +1,5 @@
 import json
+import re
 from typing import Any
 
 from google import genai
@@ -230,6 +231,82 @@ def _build_next_question(
     )
 
 
+def _apply_deterministic_followup(
+    operation: str,
+    transcript: str,
+    current_fields: dict[str, Any] | None,
+    data: dict[str, Any],
+) -> dict[str, Any]:
+    # Chỉ áp dụng câu trả lời ngắn khi ngữ cảnh biểu mẫu
+    # cho phép ánh xạ chắc chắn vào đúng một trường.
+    #
+    # Trường hợp CA_CHUA_BI là mã do người dùng cung cấp rõ ràng;
+    # hệ thống chỉ sao chép lại, không tự tạo hay suy đoán mã.
+    if operation != "CREATE_CROP_TYPE":
+        return data
+
+    current_fields = current_fields or {}
+
+    crop_name = current_fields.get(
+        "crop_name"
+    )
+    crop_group = current_fields.get(
+        "crop_group_text"
+    )
+    crop_code = current_fields.get(
+        "crop_code_suggestion"
+    )
+
+    if (
+        _is_missing(crop_name)
+        or _is_missing(crop_group)
+        or not _is_missing(crop_code)
+    ):
+        return data
+
+    explicit_value = (
+        str(transcript or "").strip()
+    )
+
+    if not re.fullmatch(
+        r"[A-Za-z0-9]+(?:[_-][A-Za-z0-9]+)+",
+        explicit_value,
+    ):
+        return data
+
+    fields = dict(
+        data.get("fields") or {}
+    )
+
+    if _is_missing(
+        fields.get(
+            "crop_code_suggestion"
+        )
+    ):
+        fields[
+            "crop_code_suggestion"
+        ] = explicit_value
+
+        data["fields"] = fields
+
+        confidence = dict(
+            data.get(
+                "field_confidence"
+            )
+            or {}
+        )
+
+        confidence[
+            "crop_code_suggestion"
+        ] = 1.0
+
+        data[
+            "field_confidence"
+        ] = confidence
+
+    return data
+
+
 def _normalize_missing_fields(
     operation: str,
     data: dict[str, Any],
@@ -442,6 +519,13 @@ def extract_dynamic_form(
             )
 
             data["contract_version"] = "3.1"
+
+            data = _apply_deterministic_followup(
+                operation=operation,
+                transcript=transcript,
+                current_fields=current_fields,
+                data=data,
+            )
 
             data = _normalize_missing_fields(
                 operation=operation,

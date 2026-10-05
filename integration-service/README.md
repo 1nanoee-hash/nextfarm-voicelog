@@ -166,6 +166,43 @@ NEXTFARM_BASE_URL=
 NEXTFARM_API_TOKEN=
 NEXTFARM_PRODUCTION_DIARY_PATH=/api/diary/production
 NEXTFARM_TIMEOUT_SECONDS=10
+
+NEXTFARM_REGIONS_JSON=[{"region_id":"region-hanoi","name":"Hà Nội","aliases":["Ha Noi","Hanoi"]}]
+```
+
+`NEXTFARM_REGIONS_JSON` là nguồn dữ liệu khu vực chuẩn dùng khi tạo lô.
+Nếu biến này chưa được cấu hình, nghiệp vụ `CREATE_PLOT` không thể ánh xạ
+`region_text` sang `region_id` và sẽ báo lỗi cấu hình.
+
+Mỗi phần tử có dạng:
+
+```json
+{
+  "region_id": "region-hanoi",
+  "name": "Hà Nội",
+  "aliases": [
+    "Ha Noi",
+    "Hanoi"
+  ]
+}
+```
+
+Quy tắc:
+
+- `region_id` phải là mã khu vực chuẩn đã được hệ thống NextFarm sử dụng.
+- `name` là tên hiển thị chuẩn.
+- `aliases` chứa các cách viết khác có thể xuất hiện từ giọng nói hoặc nhập tay.
+- Không để trùng `region_id`.
+- Không để cùng một tên hoặc bí danh thuộc nhiều `region_id`.
+- Không dùng ví dụ `region-hanoi` cho môi trường thật nếu hệ thống NextFarm của bạn dùng mã khác.
+
+Sau khi tạo hoặc sửa `.env`, hãy khởi động lại Integration Service để
+các biến môi trường được nạp lại.
+
+Ví dụ chạy trên PowerShell:
+
+```powershell
+python -m uvicorn app.main:app --reload --port 8002
 ```
 
 Không commit `.env` hoặc token thật lên Git.

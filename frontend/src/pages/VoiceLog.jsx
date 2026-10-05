@@ -18,6 +18,9 @@ import DynamicForm from "../components/DynamicForm";
 
 import { uploadAudio } from "../services/audioService";
 import {
+  extractDynamicFormFromText,
+} from "../services/dynamicFormService";
+import {
   uploadPhoto,
 } from "../services/photoUploadService";
 import {
@@ -417,6 +420,16 @@ function VoiceLog({
     transcript,
     setTranscript,
   ] = useState("");
+
+  const [
+    transcriptNeedsReanalysis,
+    setTranscriptNeedsReanalysis,
+  ] = useState(false);
+
+  const [
+    isReanalyzingTranscript,
+    setIsReanalyzingTranscript,
+  ] = useState(false);
 
   const [
     aiData,
@@ -1585,6 +1598,14 @@ function VoiceLog({
         ""
     );
 
+    setTranscriptNeedsReanalysis(
+      false
+    );
+
+    setIsReanalyzingTranscript(
+      false
+    );
+
     const restoredMaterials =
       Array.isArray(
         logToEdit.materials
@@ -1859,6 +1880,14 @@ function VoiceLog({
 
       setTranscript("");
 
+      setTranscriptNeedsReanalysis(
+        false
+      );
+
+      setIsReanalyzingTranscript(
+        false
+      );
+
       setAiData(
         createEmptyAiData()
       );
@@ -1949,6 +1978,14 @@ function VoiceLog({
 
     setTranscript(
       testData.transcript
+    );
+
+    setTranscriptNeedsReanalysis(
+      false
+    );
+
+    setIsReanalyzingTranscript(
+      false
     );
 
     setAiData({
@@ -2071,6 +2108,153 @@ function VoiceLog({
     };
 
   /* ===========================
+     Manual transcript re-analysis
+  =========================== */
+
+  const handleTranscriptChange = (
+    nextTranscript
+  ) => {
+    setTranscript(
+      nextTranscript
+    );
+
+    setTranscriptNeedsReanalysis(
+      true
+    );
+
+    setIsConfirmed(false);
+    setHasAttemptedSubmit(false);
+    setWarningAcknowledged(false);
+    clearServerValidation();
+    setCurrentStep(3);
+
+    showMessage(
+      "warning",
+      isVietnamese
+        ? "✏️ Nội dung chuyển giọng nói thành chữ đã thay đổi. Hãy bấm “Phân tích lại” để cập nhật biểu mẫu."
+        : "✏️ The transcript changed. Select “Re-analyze” to update the form."
+    );
+  };
+
+  const handleTranscriptReanalysis =
+    async () => {
+      const normalizedTranscript =
+        String(
+          transcript || ""
+        ).trim();
+
+      if (
+        !normalizedTranscript ||
+        isUploading ||
+        isConfirmed ||
+        isReanalyzingTranscript
+      ) {
+        return;
+      }
+
+      setIsUploading(true);
+      setIsReanalyzingTranscript(
+        true
+      );
+
+      setHasAttemptedSubmit(false);
+      setWarningAcknowledged(false);
+      clearServerValidation();
+
+      showMessage(
+        "success",
+        isVietnamese
+          ? "🤖 Đang phân tích lại nội dung đã chỉnh sửa..."
+          : "🤖 Re-analyzing the edited transcript..."
+      );
+
+      try {
+        const nextDynamicForm =
+          await extractDynamicFormFromText({
+            operation,
+            transcript:
+              normalizedTranscript,
+            currentFields: {},
+          });
+
+        if (
+          !nextDynamicForm ||
+          typeof nextDynamicForm !==
+            "object" ||
+          !nextDynamicForm.fields
+        ) {
+          throw new Error(
+            "Dynamic Form API returned an invalid form."
+          );
+        }
+
+        setDynamicForm(
+          nextDynamicForm
+        );
+
+        if (
+          operation ===
+          "CREATE_WORK_LOG"
+        ) {
+          const fields =
+            nextDynamicForm.fields ||
+            {};
+
+          setAiData({
+            lot:
+              fields.plot_text ||
+              "",
+
+            work:
+              fields.activity_text ||
+              "",
+
+            materials:
+              normalizeMaterials(
+                fields.materials
+              ),
+
+            time:
+              fields.performed_time_text ||
+              "",
+          });
+        }
+
+        setTranscriptNeedsReanalysis(
+          false
+        );
+
+        setCurrentStep(3);
+
+        showMessage(
+          "success",
+          isVietnamese
+            ? "✅ Đã phân tích lại nội dung và cập nhật biểu mẫu."
+            : "✅ The edited transcript was re-analyzed and the form was updated."
+        );
+      } catch (error) {
+        console.error(
+          "Transcript re-analysis error:",
+          error
+        );
+
+        showMessage(
+          "error",
+          isVietnamese
+            ? "Không thể phân tích lại nội dung. Hãy kiểm tra AI Service và thử lại."
+            : "The transcript could not be re-analyzed. Check the AI Service and try again."
+        );
+
+        setCurrentStep(3);
+      } finally {
+        setIsUploading(false);
+        setIsReanalyzingTranscript(
+          false
+        );
+      }
+    };
+
+  /* ===========================
      Upload AI
   =========================== */
 
@@ -2122,6 +2306,14 @@ function VoiceLog({
         setTranscript(
           data?.transcript ||
             ""
+        );
+
+        setTranscriptNeedsReanalysis(
+          false
+        );
+
+        setIsReanalyzingTranscript(
+          false
         );
 
         const nextDynamicForm =
@@ -3868,8 +4060,34 @@ function VoiceLog({
                 }
 
                 onTranscriptChange={
-                  setTranscript
+                  handleTranscriptChange
                 }
+
+                needsReanalysis={
+                  transcriptNeedsReanalysis
+                }
+
+                isReanalyzing={
+                  isReanalyzingTranscript
+                }
+
+                onReanalyze={
+                  handleTranscriptReanalysis
+                }
+
+                reanalyzeText={{
+                  hint: isVietnamese
+                    ? "Nội dung đã được chỉnh sửa. Biểu mẫu hiện tại có thể chưa đồng bộ."
+                    : "The transcript was edited. The current form may be out of sync.",
+
+                  action: isVietnamese
+                    ? "🤖 Phân tích lại"
+                    : "🤖 Re-analyze",
+
+                  loading: isVietnamese
+                    ? "Đang phân tích..."
+                    : "Re-analyzing...",
+                }}
 
                 isConfirmed={
                   isConfirmed

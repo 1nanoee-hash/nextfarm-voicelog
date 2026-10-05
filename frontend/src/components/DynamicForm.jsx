@@ -545,8 +545,8 @@ function DynamicForm({
               <span>
                 {value === true
                   ? isVietnamese
-                    ? "Nghiệp vụ này yêu cầu ảnh. Contract V3.1 hiện chưa định nghĩa payload hoặc API tải ảnh, nên ảnh chưa được chọn hoặc gửi từ frontend."
-                    : "This operation requires a photo. Contract V3.1 does not yet define a photo payload or upload API, so no image is selected or submitted from the frontend yet."
+                    ? "Nghiệp vụ này yêu cầu ảnh. Hãy chọn ảnh tại mục “Ảnh minh chứng” trước khi xác nhận; hệ thống sẽ tải ảnh lên khi lưu bản ghi."
+                    : "This operation requires a photo. Select one in “Photo evidence” before confirming; the app will upload it when the record is saved."
                   : value === false
                     ? isVietnamese
                       ? "Nghiệp vụ này hiện không yêu cầu ảnh."

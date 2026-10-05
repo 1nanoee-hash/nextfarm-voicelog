@@ -115,6 +115,31 @@ def _correct_contextual_npk(
     return corrected
 
 
+def _correct_contextual_crop_names(
+    text: str,
+) -> str:
+    # Chỉ sửa lỗi nhận dạng tên cây trồng đã quan sát thực tế
+    # và đủ đặc hiệu để tránh sửa nhầm từ "pi"/"bi" ở ngữ cảnh khác.
+    corrections = [
+        (
+            r"\bc[àa]\s+chua\s+pi\b",
+            "cà chua bi",
+        ),
+    ]
+
+    corrected = text
+
+    for pattern, replacement in corrections:
+        corrected = re.sub(
+            pattern,
+            replacement,
+            corrected,
+            flags=re.IGNORECASE,
+        )
+
+    return corrected
+
+
 def _correct_contextual_weight(
     text: str,
 ) -> str:
@@ -172,6 +197,10 @@ def correct_transcript(
         )
 
     corrected = _correct_contextual_npk(
+        corrected
+    )
+
+    corrected = _correct_contextual_crop_names(
         corrected
     )
 
