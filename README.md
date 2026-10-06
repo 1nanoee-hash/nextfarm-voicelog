@@ -14,6 +14,26 @@ Hệ thống hiện gồm ba phần chính:
 
 Ngoài luồng nhập nhật ký, hệ thống còn có Query Assistant (trợ lý truy vấn) để tra cứu dữ liệu bằng ngôn ngữ tự nhiên và AI Assistant (trợ lý AI) hỗ trợ thao tác trực tiếp trên giao diện.
 
+## Giao diện hệ thống
+
+### Ghi nhật ký bằng giọng nói
+
+Người dùng có thể ghi âm hoặc nhập nội dung, sau đó hệ thống chuyển giọng nói thành văn bản, trích xuất dữ liệu và hiển thị biểu mẫu để kiểm tra trước khi xác nhận.
+
+![Giao diện VoiceLog](docs/images/voicelog-overview.png)
+
+### Trợ lý AI và biểu mẫu động
+
+Trên màn hình lớn, AI Assistant (trợ lý AI) được bố trí ở vùng bên phải để hỗ trợ người dùng mà không che bản đồ hoặc biểu mẫu dài.
+
+![Trợ lý AI bên cạnh biểu mẫu](docs/images/assistant-side-rail.png)
+
+### Quản lý và tra cứu dữ liệu
+
+Người dùng có thể xem lại các loại cây trồng, lô canh tác, mùa vụ, công việc, sự cố và thu hoạch đã lưu. Trợ lý AI cũng có thể hỗ trợ tra cứu nhanh dữ liệu ngay trên màn hình quản lý.
+
+![Quản lý dữ liệu NextFarm VoiceLog](docs/images/data-management.png)
+
 ## Kiến trúc
 
 ```text
