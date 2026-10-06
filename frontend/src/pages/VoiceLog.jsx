@@ -236,92 +236,6 @@ function normalizeDynamicFormWarnings(
   return mapped;
 }
 
-const DEV_VALID_DATA = {
-  transcript:
-    "Hôm nay tôi bón 20 kg phân NPK cho lô A01 lúc 8 giờ 30.",
-
-  structuredData: {
-    lot: "A01",
-
-    work: "Bón phân",
-
-    materials: [
-      {
-        material: "Phân NPK",
-        quantity: "20",
-        unit: "kg",
-      },
-    ],
-
-    time: "08:30",
-  },
-};
-
-const DEV_ERROR_DATA = {
-  transcript:
-    "Hôm nay tôi thực hiện công việc nhưng thông tin nhận dạng chưa đầy đủ.",
-
-  structuredData: {
-    lot: "",
-    work: "",
-
-    materials: [
-      {
-        material: "Phân NPK",
-        quantity: "0",
-        unit: "",
-      },
-    ],
-
-    time: "",
-  },
-};
-
-const DEV_WARNING_DATA = {
-  transcript:
-    "Hôm nay tôi bón 20 kg phân NPK cho lô A01 lúc 8 giờ 30.",
-
-  structuredData: {
-    lot: "A01",
-
-    work: "Bón phân",
-
-    materials: [
-      {
-        material: "Phân NPK",
-        quantity: "20",
-        unit: "kg",
-      },
-    ],
-
-    time: "08:30",
-  },
-
-  /*
-   * Chỉ dùng trong DEV Test Mode để kiểm tra WARNING nhẹ.
-   * Không yêu cầu acknowledgement và KHÔNG phải ngưỡng nghiệp vụ.
-   */
-  dynamicFormWarnings: [
-    {
-      field: null,
-      code: "DEV_GLOBAL_WARNING",
-      message:
-        "🧪 Cảnh báo Dynamic Form DEV: warning toàn form.",
-    },
-  ],
-
-  simulateWarning: {
-    field:
-      "materials.0.quantity",
-
-    message:
-      "🧪 Cảnh báo mô phỏng DEV: đây là warning nhẹ, không chặn xác nhận.",
-
-    requiresConfirmation:
-      false,
-  },
-};
-
 function VoiceLog({
   language = "vi",
   onLanguageChange,
@@ -469,15 +383,6 @@ function VoiceLog({
     warningAcknowledged,
     setWarningAcknowledged,
   ] = useState(false);
-
-  /*
-   * Chỉ dùng cho nút "Dữ liệu cảnh báo" trong DEV Test Mode.
-   * Không phải business threshold production.
-   */
-  const [
-    devWarning,
-    setDevWarning,
-  ] = useState(null);
 
   /*
    * Validation trả về từ Integration Service.
@@ -721,7 +626,6 @@ function VoiceLog({
 
     setIsConfirmed(false);
     setWarningAcknowledged(false);
-    setDevWarning(null);
     setCurrentStep(3);
 
     if (autoValidation) {
@@ -811,7 +715,6 @@ function VoiceLog({
 
     setIsConfirmed(false);
     setWarningAcknowledged(false);
-    setDevWarning(null);
     clearServerValidation();
     setCurrentStep(3);
 
@@ -878,9 +781,6 @@ function VoiceLog({
     editingStatus,
     setEditingStatus,
   ] = useState(null);
-
-  const isDevMode =
-    import.meta.env.DEV;
 
   /* ===========================
      Message
@@ -1308,24 +1208,6 @@ function VoiceLog({
     }
 
 
-    /*
-     * Không hardcode quantity threshold.
-     * DEV warning chỉ kiểm tra UI và mặc định KHÔNG yêu cầu acknowledgement.
-     */
-    if (
-      import.meta.env.DEV &&
-      devWarning &&
-      Object.keys(errors).length === 0
-    ) {
-      warnings[
-        devWarning.field ||
-          "_general"
-      ] =
-        isVietnamese
-          ? devWarning.message
-          : "🧪 DEV warning simulation: non-blocking review notice.";
-    }
-
     const hasErrors =
       Object.keys(
         errors
@@ -1346,12 +1228,7 @@ function VoiceLog({
        * isValid chỉ phản ánh lỗi blocking.
        * Warning được xử lý riêng bằng warningAcknowledged.
        */
-      requiresConfirmation:
-        Boolean(
-          devWarning
-            ?.requiresConfirmation
-        ) &&
-        hasWarnings,
+      requiresConfirmation: false,
 
       isValid:
         !hasErrors,
@@ -1777,9 +1654,6 @@ function VoiceLog({
       false
     );
 
-    setDevWarning(
-      null
-    );
 
     /*
       Nếu bản ghi đã thuộc
@@ -1963,155 +1837,6 @@ function VoiceLog({
     };
 
   /* ===========================
-     DEV Test
-  =========================== */
-
-  const loadDevTestData = (
-    testData,
-    name
-  ) => {
-    if (audioUrl) {
-      URL.revokeObjectURL(
-        audioUrl
-      );
-    }
-
-    setAudioUrl(null);
-
-    setAudioBlob(null);
-
-    setTranscript(
-      testData.transcript
-    );
-
-    setTranscriptNeedsReanalysis(
-      false
-    );
-
-    setIsReanalyzingTranscript(
-      false
-    );
-
-    setAiData({
-      ...createEmptyAiData(),
-
-      ...testData.structuredData,
-
-      materials:
-        normalizeMaterials(
-          testData
-            .structuredData
-            ?.materials
-        ),
-    });
-
-    setCurrentLogId(
-      null
-    );
-
-    setCurrentLogDate(
-      null
-    );
-
-    setEditingStatus(
-      null
-    );
-
-    setIsUploading(
-      false
-    );
-
-    setIsConfirmed(
-      false
-    );
-
-    setHasAttemptedSubmit(
-      false
-    );
-
-    setWarningAcknowledged(
-      false
-    );
-
-    setDevWarning(
-      testData.simulateWarning ||
-        null
-    );
-
-    if (
-      Array.isArray(
-        testData.dynamicFormWarnings
-      )
-    ) {
-      setDynamicForm(
-        (previous) => ({
-          ...previous,
-          warnings:
-            testData.dynamicFormWarnings,
-        })
-      );
-    }
-
-    clearServerValidation();
-
-    setCurrentStep(3);
-
-    showMessage(
-      "success",
-
-      isVietnamese
-        ? `🧪 Đã nạp dữ liệu DEV: ${name}.`
-        : `🧪 DEV test data loaded: ${name}.`
-    );
-  };
-
-  const handleLoadValidTest =
-    () => {
-      loadDevTestData(
-        DEV_VALID_DATA,
-
-        isVietnamese
-          ? "Dữ liệu hợp lệ"
-          : "Valid data"
-      );
-    };
-
-  const handleLoadWarningTest =
-    () => {
-      loadDevTestData(
-        DEV_WARNING_DATA,
-
-        isVietnamese
-          ? "Dữ liệu cảnh báo"
-          : "Warning data"
-      );
-    };
-
-  const handleLoadErrorTest =
-    () => {
-      loadDevTestData(
-        DEV_ERROR_DATA,
-
-        isVietnamese
-          ? "Dữ liệu lỗi"
-          : "Error data"
-      );
-    };
-
-  const handleResetDevTest =
-    () => {
-      resetVoiceLog();
-
-      showMessage(
-        "success",
-
-        isVietnamese
-          ? "🧪 Đã reset dữ liệu DEV."
-          : "🧪 DEV test data reset."
-      );
-    };
-
-  /* ===========================
      Manual transcript re-analysis
   =========================== */
 
@@ -2288,7 +2013,6 @@ function VoiceLog({
         false
       );
 
-      setDevWarning(null);
       clearServerValidation();
 
       showMessage(
@@ -3481,7 +3205,6 @@ function VoiceLog({
           true
         );
 
-        setDevWarning(null);
         clearServerValidation();
 
         setCurrentStep(4);
@@ -3905,81 +3628,6 @@ function VoiceLog({
             isConfirmed
           }
         />
-
-        {/* DEV */}
-
-        {isDevMode && (
-          <section className="dev-test-panel">
-            <div className="dev-test-info">
-              <span className="dev-test-icon">
-                🧪
-              </span>
-
-              <div>
-                <strong>
-                  DEV Test Mode
-                </strong>
-
-                <span>
-                  {isVietnamese
-                    ? "Kiểm thử frontend không cần AI Service."
-                    : "Test the frontend without the AI Service."}
-                </span>
-              </div>
-            </div>
-
-            <div className="dev-test-actions">
-              <button
-                type="button"
-                className="dev-test-btn valid"
-                onClick={
-                  handleLoadValidTest
-                }
-              >
-                ✅{" "}
-                {isVietnamese
-                  ? "Hợp lệ"
-                  : "Valid"}
-              </button>
-
-              <button
-                type="button"
-                className="dev-test-btn warning"
-                onClick={
-                  handleLoadWarningTest
-                }
-              >
-                ⚠️{" "}
-                {isVietnamese
-                  ? "Cảnh báo"
-                  : "Warning"}
-              </button>
-
-              <button
-                type="button"
-                className="dev-test-btn error"
-                onClick={
-                  handleLoadErrorTest
-                }
-              >
-                ❌{" "}
-                {isVietnamese
-                  ? "Dữ liệu lỗi"
-                  : "Error"}
-              </button>
-
-              <button
-                type="button"
-                className="dev-test-btn reset"
-                onClick={
-                  handleResetDevTest
-                }
-              >
-                ↺ Reset
-              </button>
-            </div>
-          </section>
-        )}
 
         {/* Workflow */}
 

@@ -69,6 +69,9 @@ export default defineConfig({
     // từ thiết bị khác / Cloudflare Tunnel.
     host: "0.0.0.0",
 
+    port: 5173,
+    strictPort: true,
+
     // Cho phép các hostname do
     // Cloudflare Quick Tunnel tạo ra.
     allowedHosts: [
