@@ -346,6 +346,10 @@ function VoiceLog({
   highlightedField = "",
   onHighlightClear,
   logs = [],
+
+  currentUser = null,
+  onLogout,
+  onProfileUpdate,
 }) {
   const t =
     TEXT[language];
@@ -3820,6 +3824,18 @@ function VoiceLog({
           logs={
             logs
           }
+
+          currentUser={
+            currentUser
+          }
+
+          onLogout={
+            onLogout
+          }
+
+          onProfileUpdate={
+            onProfileUpdate
+          }
         />
 
         {/* Hero */}
@@ -4253,6 +4269,7 @@ function VoiceLog({
                   </label>
 
                   <input
+                    className="photo-evidence-input"
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
                     disabled={

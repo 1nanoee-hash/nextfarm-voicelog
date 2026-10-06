@@ -9,6 +9,7 @@ import {
 } from "./utils/id";
 
 import VoiceLog from "./pages/VoiceLog";
+import AuthPage from "./pages/AuthPage";
 import MyLogs from "./pages/MyLogs";
 import Settings from "./pages/Settings";
 import Management from "./pages/Management";
@@ -27,6 +28,12 @@ import {
   saveSettings,
 } from "./services/settingsService";
 
+import {
+  getAuthSession,
+  logoutDemo,
+  updateProfileDemo,
+} from "./services/authService";
+
 import "./App.css";
 
 const EMPTY_AI_DATA = {
@@ -43,6 +50,13 @@ function App() {
     activePage,
     setActivePage,
   ] = useState("create");
+
+  const [
+    authSession,
+    setAuthSession,
+  ] = useState(() =>
+    getAuthSession()
+  );
 
   /* ===========================
      Global settings
@@ -563,6 +577,48 @@ function App() {
     );
   };
 
+  const handleProfileUpdate = (
+    changes
+  ) => {
+    const updatedSession =
+      updateProfileDemo(
+        changes
+      );
+
+    setAuthSession(
+      updatedSession
+    );
+
+    return updatedSession;
+  };
+
+  const handleLogout = () => {
+    logoutDemo();
+
+    setAuthSession(null);
+
+    setActivePage(
+      "create"
+    );
+
+    setLogToEdit(null);
+
+    setPendingAiChanges(null);
+    setPendingDynamicFormChange(null);
+    setHighlightedField("");
+  };
+
+  if (!authSession) {
+    return (
+      <AuthPage
+        language={language}
+        onAuthenticated={
+          setAuthSession
+        }
+      />
+    );
+  }
+
   return (
     <div className="app-shell">
       <AppSidebar
@@ -667,6 +723,18 @@ function App() {
 
           logs={
             logs
+          }
+
+          currentUser={
+            authSession
+          }
+
+          onLogout={
+            handleLogout
+          }
+
+          onProfileUpdate={
+            handleProfileUpdate
           }
         />
       )}

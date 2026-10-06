@@ -12,7 +12,32 @@ function Header({
   onThemeChange,
 
   logs = [],
+
+  currentUser = null,
+  onLogout,
+  onProfileUpdate,
 }) {
+  const displayName =
+    currentUser?.name ||
+    "Ngu\u01b0\u1eddi d\u00f9ng NextFarm";
+
+  const [
+    isEditingProfile,
+    setIsEditingProfile,
+  ] = useState(false);
+
+  const [
+    profileName,
+    setProfileName,
+  ] = useState(
+    displayName
+  );
+
+  const [
+    profileFeedback,
+    setProfileFeedback,
+  ] = useState(null);
+
   const [
     showLanguageMenu,
     setShowLanguageMenu,
@@ -132,6 +157,22 @@ function Header({
   const openAccountPanel = (
     panel
   ) => {
+    if (
+      panel === "profile"
+    ) {
+      setProfileName(
+        displayName
+      );
+
+      setIsEditingProfile(
+        false
+      );
+
+      setProfileFeedback(
+        null
+      );
+    }
+
     setAccountPanel(panel);
     setShowUserMenu(false);
   };
@@ -237,6 +278,16 @@ function Header({
             "Đã mô phỏng đăng xuất. Hệ thống hiện chưa kết nối xác thực tài khoản thật.",
           backToApp:
             "Quay lại ứng dụng",
+          editProfile:
+            "Ch\u1ec9nh s\u1eeda h\u1ed3 s\u01a1",
+          saveProfile:
+            "L\u01b0u thay \u0111\u1ed5i",
+          cancelEdit:
+            "H\u1ee7y",
+          nameRequired:
+            "H\u1ecd v\u00e0 t\u00ean kh\u00f4ng \u0111\u01b0\u1ee3c \u0111\u1ec3 tr\u1ed1ng.",
+          profileSaved:
+            "\u0110\u00e3 c\u1eadp nh\u1eadt h\u1ed3 s\u01a1.",
         }
       : {
           profile:
@@ -301,12 +352,70 @@ function Header({
             "Logout simulated. Real account authentication is not connected yet.",
           backToApp:
             "Back to app",
+          editProfile:
+            "Edit profile",
+          saveProfile:
+            "Save changes",
+          cancelEdit:
+            "Cancel",
+          nameRequired:
+            "Full name cannot be empty.",
+          profileSaved:
+            "Profile updated successfully.",
         };
+
+  const handleSaveProfile = () => {
+    const nextName =
+      profileName.trim();
+
+    if (!nextName) {
+      setProfileFeedback({
+        type: "error",
+        text:
+          accountCopy
+            .nameRequired,
+      });
+
+      return;
+    }
+
+    try {
+      const updated =
+        onProfileUpdate?.({
+          name: nextName,
+        });
+
+      setProfileName(
+        updated?.name ||
+        nextName
+      );
+
+      setIsEditingProfile(
+        false
+      );
+
+      setProfileFeedback({
+        type: "success",
+        text:
+          accountCopy
+            .profileSaved,
+      });
+    } catch (error) {
+      setProfileFeedback({
+        type: "error",
+        text:
+          error?.message ||
+          accountCopy
+            .nameRequired,
+      });
+    }
+  };
 
   const handleLogout = () => {
     setShowLogoutConfirm(false);
     setShowUserMenu(false);
-    setLogoutMessage(true);
+
+    onLogout?.();
   };
 
   /* ===========================
@@ -547,7 +656,7 @@ function Header({
                 ,{" "}
 
                 <strong>
-                  Khoa Nguyễn
+                  {displayName}
                 </strong>
               </span>
 
@@ -570,7 +679,7 @@ function Header({
 
                   <div>
                     <strong>
-                      Khoa Nguyễn
+                      {displayName}
                     </strong>
 
                     <span>
@@ -743,7 +852,7 @@ function Header({
 
                   <div>
                     <h3>
-                      Khoa Nguyễn
+                      {displayName}
                     </h3>
                     <p>
                       {
@@ -766,9 +875,33 @@ function Header({
                         accountCopy.fullName
                       }
                     </span>
-                    <strong>
-                      Khoa Nguyễn
-                    </strong>
+
+                    {isEditingProfile ? (
+                      <input
+                        className="profile-edit-input"
+                        type="text"
+                        value={
+                          profileName
+                        }
+                        onChange={(
+                          event
+                        ) => {
+                          setProfileName(
+                            event.target
+                              .value
+                          );
+
+                          setProfileFeedback(
+                            null
+                          );
+                        }}
+                        autoFocus
+                      />
+                    ) : (
+                      <strong>
+                        {displayName}
+                      </strong>
+                    )}
                   </div>
                   <div>
                     <span>
@@ -795,6 +928,82 @@ function Header({
                     </strong>
                   </div>
                 </div>
+
+                <div className="profile-edit-actions">
+                  {isEditingProfile ? (
+                    <>
+                      <button
+                        type="button"
+                        className="profile-edit-cancel"
+                        onClick={() => {
+                          setProfileName(
+                            displayName
+                          );
+
+                          setIsEditingProfile(
+                            false
+                          );
+
+                          setProfileFeedback(
+                            null
+                          );
+                        }}
+                      >
+                        {
+                          accountCopy
+                            .cancelEdit
+                        }
+                      </button>
+
+                      <button
+                        type="button"
+                        className="profile-edit-save"
+                        onClick={
+                          handleSaveProfile
+                        }
+                      >
+                        {
+                          accountCopy
+                            .saveProfile
+                        }
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      className="profile-edit-button"
+                      onClick={() => {
+                        setProfileName(
+                          displayName
+                        );
+
+                        setProfileFeedback(
+                          null
+                        );
+
+                        setIsEditingProfile(
+                          true
+                        );
+                      }}
+                    >
+                      {"\u270f\ufe0f"}{" "}
+                      {
+                        accountCopy
+                          .editProfile
+                      }
+                    </button>
+                  )}
+                </div>
+
+                {profileFeedback && (
+                  <p
+                    className={`profile-edit-feedback ${profileFeedback.type}`}
+                  >
+                    {
+                      profileFeedback.text
+                    }
+                  </p>
+                )}
 
                 <h4>
                   {
