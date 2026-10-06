@@ -4,16 +4,22 @@ Hệ thống ghi nhật ký sản xuất nông nghiệp bằng giọng nói ti�
 
 ## Tổng quan
 
-NextFarm VoiceLog hỗ trợ người dùng ghi nhật ký canh tác bằng giọng nói. Hệ thống xử lý audio, chuyển giọng nói thành văn bản, chuẩn hóa transcript, trích xuất dữ liệu bằng AI, kiểm tra thông tin còn thiếu, hỏi bổ sung qua VoiceLog Bot, resolve Master Data và lưu nhật ký thông qua Integration Service.
+NextFarm VoiceLog cho phép người dùng tạo và quản lý dữ liệu sản xuất nông nghiệp bằng giọng nói hoặc nhập tay. Hệ thống xử lý âm thanh, chuyển giọng nói thành văn bản, chuẩn hóa nội dung, trích xuất dữ liệu bằng AI, hỏi bổ sung khi thiếu thông tin, cho phép người dùng xác nhận và lưu dữ liệu qua dịch vụ tích hợp.
 
-Hệ thống cũng có Query Assistant để tra cứu nhật ký bằng ngôn ngữ tự nhiên.
+Hệ thống hiện gồm ba phần chính:
+
+- Frontend (giao diện người dùng): React + Vite.
+- AI Service (dịch vụ AI): FastAPI, Whisper và Gemini.
+- Integration Service (dịch vụ tích hợp): FastAPI, SQLAlchemy và PostgreSQL.
+
+Ngoài luồng nhập nhật ký, hệ thống còn có Query Assistant (trợ lý truy vấn) để tra cứu dữ liệu bằng ngôn ngữ tự nhiên và AI Assistant (trợ lý AI) hỗ trợ thao tác trực tiếp trên giao diện.
 
 ## Kiến trúc
 
 ```text
 Frontend - React + Vite
         |
-        | audio / message
+        | audio / text / form
         v
 AI Service - FastAPI
         |
@@ -24,15 +30,15 @@ AI Service - FastAPI
         |-- Confidence / Uncertainty
         |-- Missing Fields Detection
         |-- VoiceLog Bot
-        |-- Query Assistant
-        |
-        | Text Contract V2
+        |-- Dynamic Form 3.1
         v
 Integration Service - FastAPI
         |
         |-- Master Data Resolve
         |-- Business Validation
-        |-- Cultivation Logs
+        |-- Dynamic Operations
+        |-- Photo Upload
+        |-- Persistence / History
         |-- Sync / NextFarm Adapter
         v
 PostgreSQL 16
@@ -41,43 +47,64 @@ PostgreSQL 16
 NextFarm Backend / Mock
 ```
 
-LLM không được phép tự tạo mã nghiệp vụ. AI Service truyền dữ liệu dạng human-readable; Integration Service chịu trách nhiệm resolve sang Master Data code.
+LLM (mô hình ngôn ngữ lớn) không được phép tự tạo mã nghiệp vụ tùy ý. AI Service ưu tiên trả dữ liệu dạng người dùng có thể đọc và xác nhận; Integration Service chịu trách nhiệm chuẩn hóa, ánh xạ Master Data (dữ liệu chuẩn), kiểm tra nghiệp vụ và lưu dữ liệu.
 
-## Text Contract V2
+## Nghiệp vụ hiện hỗ trợ
+
+| Mã nghiệp vụ | Chức năng |
+|---|---|
+| `CREATE_WORK_LOG` | Tạo nhật ký công việc/canh tác |
+| `CREATE_CROP_TYPE` | Tạo loại cây trồng |
+| `CREATE_PLOT` | Tạo lô/thửa đất |
+| `CREATE_SEASON` | Tạo mùa vụ |
+| `CREATE_TASK` | Tạo công việc |
+| `CREATE_HARVEST` | Tạo bản ghi thu hoạch |
+| `CREATE_ISSUE_REPORT` | Ghi nhận sự cố |
+
+Các nghiệp vụ dùng cùng cơ chế Dynamic Form (biểu mẫu động): AI trích xuất dữ liệu, chỉ ra trường còn thiếu, hỏi bổ sung nếu cần và chờ người dùng xác nhận trước khi lưu.
+
+## Dynamic Form Contract 3.1
+
+Cấu trúc phản hồi chung của biểu mẫu động:
 
 ```json
 {
-  "activity_text": "Tưới nước",
-  "lot_text": "Lô B",
-  "materials": [
-    {
-      "material_text": "Nước",
-      "quantity": 100,
-      "unit_text": "lít"
-    }
-  ],
-  "time_text": "06:00",
+  "contract_version": "3.1",
+  "operation": "CREATE_WORK_LOG",
+  "fields": {},
   "missing_fields": [],
   "warnings": [],
-  "requires_confirmation": false
+  "field_confidence": {},
+  "requires_confirmation": false,
+  "next_question": null
 }
 ```
+
+`fields` thay đổi theo từng nghiệp vụ.
+
+Một số nguyên tắc quan trọng:
+
+- Không tự tạo mã nghiệp vụ khi chưa có dữ liệu chuẩn tương ứng.
+- Câu trả lời ngắn được áp dụng vào đúng trường đang chờ khi ngữ cảnh đủ rõ ràng.
+- Nội dung nhập tay có thể được sửa và bấm **Phân tích lại** để cập nhật biểu mẫu.
+- Transcript Correction (chuẩn hóa nội dung chuyển giọng nói thành chữ) chỉ sửa các lỗi đủ đặc hiệu theo ngữ cảnh, ví dụ `cà chua pi` → `cà chua bi`.
+- Các cụm sự cố cụ thể như `bệnh đốm lá` được chuẩn hóa về nhóm nghiệp vụ `Bệnh`; cụm mơ hồ như `sâu bệnh` không được tự chọn một nhóm.
 
 ## Công nghệ
 
 | Thành phần | Công nghệ |
 |---|---|
-| Frontend | React 19, Vite 8 |
+| Frontend | React 19, Vite 8, Leaflet |
 | AI Service | FastAPI, Uvicorn, Pydantic |
-| Speech-to-Text | OpenAI Whisper |
+| Speech-to-Text (chuyển giọng nói thành văn bản) | OpenAI Whisper |
 | LLM | Google Gemini (`google-genai`) |
 | Integration Service | FastAPI, SQLAlchemy 2 |
-| Database | PostgreSQL 16 |
-| PostgreSQL Driver | Psycopg 3 |
-| Migration | Alembic |
-| Testing | pytest, frontend Node tests |
-| Container | Docker Compose |
-| API Testing | Postman |
+| Database (cơ sở dữ liệu) | PostgreSQL 16 |
+| PostgreSQL Driver (trình điều khiển PostgreSQL) | Psycopg 3 |
+| Migration (quản lý thay đổi cơ sở dữ liệu) | Alembic |
+| Testing (kiểm thử) | pytest, Vitest, Testing Library |
+| Container (môi trường đóng gói) | Docker Compose |
+| API Testing (kiểm thử API) | Postman |
 
 ## Cấu trúc repository
 
@@ -99,13 +126,13 @@ nextfarm-voicelog/
 |   |-- app/
 |   |-- migrations/
 |   |-- tests/
+|   |-- uploads/
 |   |-- alembic.ini
 |   `-- requirements.txt
 |-- contracts/
 |-- docs/
 |-- postman/
 |-- scripts/
-|-- uploads/
 |-- docker-compose.yml
 |-- CONTRIBUTING.md
 |-- README.md
@@ -120,9 +147,9 @@ nextfarm-voicelog/
 | Thắng | Backend AI / AI Service: FastAPI, Whisper, Gemini, Validation, VoiceLog Bot |
 | Khoa | Frontend React/Vite, giao diện VoiceLog và AI Assistant |
 
-## Port
+## Cổng dịch vụ
 
-| Service | Địa chỉ |
+| Dịch vụ | Địa chỉ |
 |---|---|
 | Frontend | `http://localhost:5173` |
 | AI Service | `http://127.0.0.1:8000` |
@@ -131,18 +158,30 @@ nextfarm-voicelog/
 | Integration Swagger | `http://127.0.0.1:8002/docs` |
 | PostgreSQL host port | `1275` |
 
+## Cấu hình môi trường
+
+Không đưa `.env` hoặc khóa thật lên Git.
+
+Integration Service có thể dùng biến cấu hình khu vực chuẩn cho nghiệp vụ tạo lô:
+
+```env
+NEXTFARM_REGIONS_JSON=[{"region_id":"region-hanoi","name":"Hà Nội","aliases":["Ha Noi","Hanoi"]}]
+```
+
+`region_id` phải khớp mã khu vực thực tế của môi trường NextFarm. Sau khi sửa `.env`, cần khởi động lại Integration Service để nạp lại biến môi trường.
+
+Các cấu hình chi tiết khác xem trong `.env.example` của từng dịch vụ.
+
 ## Chạy hệ thống
 
 ### 1. PostgreSQL
 
-Từ thư mục root:
+Từ thư mục gốc:
 
 ```powershell
 docker compose up -d postgres
 docker ps
 ```
-
-PostgreSQL container hiện dùng tên `nextfarm-postgres`.
 
 ### 2. AI Service
 
@@ -152,11 +191,11 @@ cd ai-service
 python -m uvicorn app.main:app --port 8000
 ```
 
-Không dùng `--reload` trên máy RAM hạn chế vì Whisper có thể bị load nhiều lần.
+Không nên dùng `--reload` trên máy ít RAM vì Whisper có thể được nạp nhiều lần.
 
 ### 3. Integration Service
 
-Mở terminal mới:
+Mở cửa sổ lệnh mới:
 
 ```powershell
 cd integration-service
@@ -166,7 +205,7 @@ python -m uvicorn app.main:app --port 8002
 
 ### 4. Frontend
 
-Mở terminal mới:
+Mở cửa sổ lệnh mới:
 
 ```powershell
 cd frontend
@@ -174,7 +213,7 @@ npm install
 npm run dev
 ```
 
-Nếu dependency đã được cài trước đó:
+Nếu thư viện đã được cài:
 
 ```powershell
 npm run dev
@@ -182,10 +221,11 @@ npm run dev
 
 ## AI Service API
 
-Các endpoint hiện có:
+Các endpoint (điểm truy cập API) chính:
 
 ```text
 POST /api/v1/audio/upload
+POST /api/v1/dynamic-form/extract
 POST /api/v1/bot/sessions
 GET  /api/v1/bot/sessions/{session_id}
 POST /api/v1/bot/sessions/{session_id}/messages
@@ -195,69 +235,95 @@ GET  /api/v1/ready
 
 ## Integration Service API
 
-Các endpoint chính:
+Các nhóm API chính:
 
 ```text
 /api/cultivation-logs
-/api/cultivation-logs/test
-/api/cultivation-logs/validate
-/api/cultivation-logs/{client_record_id}
+/api/crop-types
+/api/plots
+/api/seasons
+/api/tasks
+/api/harvests
+/api/issue-reports
+/api/uploads/images
+/api/master-data
 /api/history
-/api/master-data/activities
-/api/master-data/lots
-/api/master-data/materials
-/api/master-data/resolve
-/api/master-data/resolve-cultivation
-/api/master-data/units
-/api/nextfarm/cultivation-logs/{client_record_id}/submit
-/api/nextfarm/test
-/api/sync/logs
-/api/sync/test
+/api/nextfarm
+/api/sync
 /health
+```
+
+Danh sách endpoint đầy đủ và schema hiện tại xem trực tiếp tại:
+
+```text
+http://127.0.0.1:8002/docs
 ```
 
 ## Master Data
 
-### Activities
+Một số nhóm dữ liệu chuẩn hiện dùng gồm:
+
+- hoạt động;
+- lô/thửa;
+- vật tư;
+- đơn vị;
+- cây trồng;
+- mùa vụ;
+- khu vực.
+
+Ví dụ:
 
 ```text
-BON_PHAN
-PHUN_THUOC
-TUOI_NUOC
-LAM_CO
-THU_HOACH
-CHO_BO_AN
+Cho bò ăn -> CHO_BO_AN
+Lô A       -> LO_A
+Cám        -> CAM
+kg         -> KG
 ```
 
-### Lots
+Các giá trị mơ hồ theo vùng miền như `xị`, `công`, `sào` không được tự động quy đổi nếu chưa có quy tắc nghiệp vụ rõ ràng.
+
+## Ảnh minh chứng
+
+Integration Service hỗ trợ tải ảnh tại:
 
 ```text
-Lô A -> LO_A
-Lô B -> LO_B
+POST /api/uploads/images
 ```
 
-### Materials
+Định dạng ảnh hỗ trợ:
 
 ```text
-Cám -> CAM
-NPK -> NPK
-Urê -> URE
+JPEG
+PNG
+WEBP
 ```
 
-### Units
+Kích thước tối đa hiện tại: 10 MB mỗi ảnh.
+
+Giao diện đã hỗ trợ chọn và tải ảnh cho các nghiệp vụ cần ảnh như sự cố và thu hoạch; cảnh báo cũ về việc chưa hỗ trợ tải ảnh không còn được sử dụng.
+
+## Chỉnh sửa nội dung và phân tích lại
+
+Sau khi hệ thống chuyển giọng nói thành chữ, người dùng có thể sửa nội dung trực tiếp.
+
+Khi transcript bị thay đổi:
 
 ```text
-KG
-G
-L
-ML
-BAG
-BOTTLE
+Sửa nội dung
+ -> biểu mẫu được đánh dấu chưa đồng bộ
+ -> bấm "Phân tích lại"
+ -> AI Service phân tích nội dung mới
+ -> Dynamic Form được cập nhật
+ -> người dùng kiểm tra và xác nhận
 ```
 
-Các đơn vị mơ hồ như `xị`, `công`, `sào` không được tự động quy đổi nếu chưa có quy tắc nghiệp vụ rõ ràng.
+Hệ thống không âm thầm ghi đè biểu mẫu ngay khi người dùng đang sửa nội dung.
 
-`materials` có thể là mảng rỗng đối với hoạt động không sử dụng vật tư.
+## AI Assistant trên màn hình lớn
+
+Khi màn hình đủ rộng và AI Assistant được mở, giao diện dành một vùng bên phải cho trợ lý thay vì để cửa sổ trợ lý che bản đồ hoặc biểu mẫu dài.
+
+Ở kích thước màn hình nhỏ hơn, giao diện vẫn sử dụng bố cục thích ứng.
 
 ## Query Assistant
 
@@ -270,103 +336,134 @@ Cho tôi xem nhật ký hôm qua
 7 ngày gần đây có những hoạt động gì?
 Có bao nhiêu lần bón phân?
 Lô A đã bón phân bao nhiêu lần?
-7 ngày gần đây Lô A có những hoạt động gì?
-7 ngày gần đây Lô A có bao nhiêu lần bón phân?
 NPK đã được dùng ở lô nào?
-7 ngày gần đây NPK đã được dùng ở lô nào?
 ```
 
-Các truy vấn ngày hiện được xử lý theo thời gian Việt Nam UTC+7.
+Các truy vấn ngày được xử lý theo thời gian Việt Nam UTC+7.
 
-Intent Router ưu tiên nhận diện Query để câu hỏi tra cứu không bị VoiceLog Bot hiểu nhầm thành giá trị của field đang thiếu.
+Intent Router (bộ định tuyến ý định) ưu tiên nhận diện câu hỏi tra cứu để Query Assistant không bị VoiceLog Bot hiểu nhầm thành giá trị của trường đang thiếu.
 
-## Testing
+## Kiểm thử
 
 ### Frontend
 
+Kiểm tra quy tắc mã và đóng gói:
+
 ```powershell
 cd frontend
-node src/services/intentRouter.test.js
-node src/services/queryService.test.js
-node src/services/queryAssistantService.test.js
+npm run lint
 npm run build
 ```
+
+Chạy các bộ kiểm thử Vitest:
+
+```powershell
+npx vitest run
+```
+
+Lưu ý: một số tệp kiểm thử JavaScript cũ chạy kiểm tra trực tiếp bằng `node` và không khai báo `describe/it` theo chuẩn Vitest, nên khi chạy toàn bộ `npx vitest run` có thể xuất hiện thông báo `No test suite found` cho các tệp cũ đó.
+
+Các kiểm thử giao diện mục tiêu của đợt tích hợp hiện tại đã đạt 11/11, gồm kiểm thử chỉnh sửa nhật ký, bản đồ, tải ảnh, phân tích lại transcript và bố cục AI Assistant.
 
 ### AI Service
 
 ```powershell
 cd ai-service
 .\.venv\Scripts\Activate.ps1
-pytest
+python -m pytest tests
 ```
+
+Mốc kiểm thử gần nhất trên nhánh tích hợp: **55/55 đạt**.
+
+Không dùng `python -m pytest` tại thư mục gốc nếu chỉ muốn chạy bộ kiểm thử chính thức, vì tệp thử nghiệm thủ công `test_whisper.py` ở ngoài thư mục `tests` phụ thuộc vào một tệp âm thanh cục bộ cụ thể.
 
 ### Integration Service
 
 ```powershell
 cd integration-service
 .\.venv\Scripts\Activate.ps1
-pytest
+python -m pytest tests
 ```
+
+Mốc kiểm thử gần nhất trên nhánh tích hợp: **304/304 đạt**.
 
 ## Demo checklist
 
 ```text
 [ ] PostgreSQL đang chạy
-[ ] AI Service đang chạy ở port 8000
-[ ] Integration Service đang chạy ở port 8002
-[ ] Frontend đang chạy ở port 5173
+[ ] AI Service chạy ở port 8000
+[ ] Integration Service chạy ở port 8002
+[ ] Frontend chạy ở port 5173
 [ ] AI Swagger truy cập được
 [ ] Integration Swagger truy cập được
-[ ] VoiceLog flow hoạt động
+[ ] Ghi âm -> transcript -> Dynamic Form hoạt động
+[ ] Sửa transcript -> Phân tích lại hoạt động
+[ ] VoiceLog Bot hỏi bổ sung đúng trường còn thiếu
+[ ] CREATE_WORK_LOG lưu được
+[ ] CREATE_CROP_TYPE lưu được
+[ ] CREATE_PLOT ánh xạ khu vực đúng
+[ ] CREATE_SEASON lưu được
+[ ] CREATE_TASK lưu được
+[ ] CREATE_HARVEST lưu được và tải ảnh được khi cần
+[ ] CREATE_ISSUE_REPORT chuẩn hóa loại sự cố và tải ảnh được
+[ ] AI Assistant không che bản đồ/biểu mẫu trên màn hình lớn
 [ ] Query Assistant hoạt động
 ```
 
-Luồng demo VoiceLog:
+Luồng chính:
 
 ```text
-Audio
- -> FFmpeg
- -> Whisper
+Audio / Text
+ -> FFmpeg + Whisper (nếu có audio)
  -> Transcript Correction
  -> Gemini Extraction
+ -> Dynamic Form 3.1
  -> Confidence / Missing Fields
  -> VoiceLog Bot hỏi bổ sung nếu cần
+ -> User Review / Manual Edit
+ -> Re-analyze nếu transcript được sửa
  -> User Confirmation
- -> Text Contract V2
  -> Integration Service
  -> Master Data Resolve
  -> Business Validation
+ -> Photo Upload nếu có
  -> PostgreSQL
+ -> NextFarm Adapter / Mock
 ```
-
-Regression quan trọng: trong lúc VoiceLog Bot đang hỏi một field còn thiếu, một câu query như `Cho tôi xem nhật ký hôm nay` phải đi vào Query Assistant và không được điền nhầm vào VoiceLog context.
 
 ## Git workflow
 
+Luồng phát triển chung:
+
 ```text
-feature/*
-   |
-   v
+feature/* hoặc task/*
+        |
+        v
 Pull Request
-   |
-   v
+        |
+        v
 develop
-   |
-   v
+        |
+        v
 Regression Test
-   |
-   v
+        |
+        v
 main
 ```
 
+Nhánh `integration/v3-full-system-check` hiện được dùng để kiểm tra tích hợp toàn hệ thống trước khi đưa thay đổi về luồng chính của nhóm.
+
+Quy ước:
+
 - `main`: phiên bản ổn định.
-- `develop`: branch tích hợp và kiểm thử.
-- `feature/*`: branch phát triển tính năng.
-- Không commit trực tiếp vào `main`.
+- `develop`: nhánh tích hợp chung.
+- `feature/*`, `task/*`: nhánh phát triển chức năng.
+- `integration/v3-full-system-check`: nhánh kiểm tra tích hợp V3 hiện tại.
+- Không ghi thay đổi trực tiếp vào `main` nếu chưa qua quy trình của nhóm.
 
 ## Bảo mật
 
-Không commit các secret như:
+Không đưa các thông tin bí mật lên Git:
 
 ```text
 .env
@@ -376,7 +473,7 @@ Database credentials
 Private tokens
 ```
 
-Các secret nên được lấy từ biến môi trường / `.env`; chỉ commit file `.env.example` không chứa giá trị thật.
+Chỉ đưa `.env.example` không chứa giá trị thật vào kho mã.
 
 ## Trạng thái chức năng
 
@@ -387,18 +484,26 @@ Audio Processing
 Whisper Speech-to-Text
 Safe Transcript Correction
 Gemini Extraction
+Dynamic Form 3.1
 Confidence / Uncertainty
 Missing Fields Detection
 VoiceLog Bot
+Manual Transcript Re-analysis
 Intent Router
 Query Assistant
-Today Query
-Yesterday Query
-Recent 7-Day Query
-Combined Time + Business Filters
-Master Data Friendly Names
-Integration Service
+Master Data Resolution
+CREATE_WORK_LOG
+CREATE_CROP_TYPE
+CREATE_PLOT
+CREATE_SEASON
+CREATE_TASK
+CREATE_HARVEST
+CREATE_ISSUE_REPORT
+Photo Upload
+AI Assistant Desktop Side Rail
 PostgreSQL Persistence
+Integration History
+NextFarm Mock / Adapter
 Regression Tests
 ```
 
