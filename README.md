@@ -36,35 +36,45 @@ Người dùng có thể xem lại các loại cây trồng, lô canh tác, mùa
 
 ## Kiến trúc
 
+Sơ đồ kiến trúc tổng quát:
+
+```mermaid
+flowchart LR
+    U[Người dùng]
+    F[Frontend<br/>React + Vite]
+    AI[AI Service<br/>FastAPI]
+    INT[Integration Service<br/>FastAPI]
+    DB[(PostgreSQL 16)]
+    NF[NextFarm Backend / Mock]
+
+    U -->|Ghi âm / nhập tay| F
+    F -->|Âm thanh / nội dung| AI
+    AI -->|Dynamic Form 3.1| F
+    F -->|Dữ liệu đã xác nhận| INT
+    INT -->|Lưu dữ liệu| DB
+    INT -->|Đồng bộ| NF
+
+    AI --- A1[FFmpeg + Whisper]
+    AI --- A2[Transcript Correction]
+    AI --- A3[Gemini Extraction]
+    AI --- A4[VoiceLog Bot]
+
+    INT --- I1[Master Data Resolve]
+    INT --- I2[Business Validation]
+    INT --- I3[Photo Upload]
+    INT --- I4[History / Sync]
+```
+
+Luồng xử lý chính:
+
 ```text
-Frontend - React + Vite
-        |
-        | audio / text / form
-        v
-AI Service - FastAPI
-        |
-        |-- FFmpeg preprocessing
-        |-- Whisper Speech-to-Text
-        |-- Safe Transcript Correction
-        |-- Gemini Extraction
-        |-- Confidence / Uncertainty
-        |-- Missing Fields Detection
-        |-- VoiceLog Bot
-        |-- Dynamic Form 3.1
-        v
-Integration Service - FastAPI
-        |
-        |-- Master Data Resolve
-        |-- Business Validation
-        |-- Dynamic Operations
-        |-- Photo Upload
-        |-- Persistence / History
-        |-- Sync / NextFarm Adapter
-        v
-PostgreSQL 16
-        |
-        v
-NextFarm Backend / Mock
+Người dùng
+  -> Frontend
+  -> AI Service
+  -> kiểm tra / xác nhận
+  -> Integration Service
+  -> PostgreSQL
+  -> NextFarm Backend / Mock
 ```
 
 LLM (mô hình ngôn ngữ lớn) không được phép tự tạo mã nghiệp vụ tùy ý. AI Service ưu tiên trả dữ liệu dạng người dùng có thể đọc và xác nhận; Integration Service chịu trách nhiệm chuẩn hóa, ánh xạ Master Data (dữ liệu chuẩn), kiểm tra nghiệp vụ và lưu dữ liệu.
