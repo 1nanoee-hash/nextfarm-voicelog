@@ -37,36 +37,9 @@ Người dùng có thể xem lại dữ liệu đã lưu và sử dụng trợ l
 
 ## Kiến trúc hệ thống
 
-```mermaid
-flowchart TB
-    U[Người dùng]
-    FE[Frontend<br/>React + Vite]
-    AI[AI Service<br/>FastAPI]
-    INT[Integration Service<br/>FastAPI]
-    DB[(PostgreSQL 16)]
-    IMG[Lưu trữ ảnh minh chứng]
-    NF[NextFarm Backend / Mock]
+Sơ đồ dưới đây thể hiện luồng chính từ người dùng qua giao diện, dịch vụ AI, dịch vụ tích hợp, cơ sở dữ liệu và hệ thống NextFarm.
 
-    U --> FE
-
-    FE -->|Âm thanh / văn bản| AI
-    AI -->|Biểu mẫu động / câu hỏi bổ sung| FE
-
-    FE -->|Dữ liệu đã xác nhận| INT
-    INT -->|Lưu dữ liệu| DB
-    INT -->|Lưu ảnh| IMG
-    INT -->|Đồng bộ| NF
-
-    AI --- A1[Whisper + FFmpeg]
-    AI --- A2[Chuẩn hóa nội dung]
-    AI --- A3[Gemini Extraction]
-    AI --- A4[VoiceLog Bot / Query Assistant]
-
-    INT --- I1[Master Data Resolve]
-    INT --- I2[Business Validation]
-    INT --- I3[Dynamic Operations]
-    INT --- I4[History / Sync]
-```
+![Sơ đồ kiến trúc hệ thống NextFarm VoiceLog](docs/images/system-architecture.png)
 
 Ba thành phần chính có trách nhiệm tách biệt:
 
