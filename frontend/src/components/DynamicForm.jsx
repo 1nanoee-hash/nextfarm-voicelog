@@ -160,6 +160,26 @@ function DynamicForm({
       : null;
   };
 
+  const isEmptyOptionalField = (
+    fieldPath
+  ) => {
+    const field =
+      template?.fields?.find(
+        (item) =>
+          item.name === fieldPath
+      );
+
+    return Boolean(
+      field &&
+        !field.required &&
+        !hasFieldValue(
+          getFieldValueByPath(
+            fieldPath
+          )
+        )
+    );
+  };
+
   const getFieldClassName = (
     fieldPath
   ) => {
@@ -169,6 +189,10 @@ function DynamicForm({
 
     if (getFieldWarning(fieldPath)) {
       return "ai-field validation-warning";
+    }
+
+    if (isEmptyOptionalField(fieldPath)) {
+      return "ai-field";
     }
 
     const confidence =
@@ -206,6 +230,10 @@ function DynamicForm({
           {warning.message}
         </p>
       );
+    }
+
+    if (isEmptyOptionalField(fieldPath)) {
+      return null;
     }
 
     const confidence =

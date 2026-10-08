@@ -890,6 +890,21 @@ function MyLogs({
                     "-"
                   }
                 />
+                {String(
+                  selectedLog.notes || ""
+                ).trim() && (
+                  <DetailItem
+                    icon="📝"
+                    label={
+                      isVietnamese
+                        ? "Ghi chú"
+                        : "Notes"
+                    }
+                    value={
+                      selectedLog.notes
+                    }
+                  />
+                )}
               </div>
             </div>
 

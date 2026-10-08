@@ -101,14 +101,14 @@ function buildPerformedAt(
   const normalizedTime =
     String(timeText || "").trim();
 
-  const timeMatch =
-    normalizedTime.match(
-      /^([01]?\d|2[0-3]):([0-5]\d)$/
-    );
-
-  if (!timeMatch) {
-    return null;
-  }
+  const normalizedForMatch =
+    normalizedTime
+      .normalize("NFD")
+      .replace(
+        /[\u0300-\u036f]/g,
+        ""
+      )
+      .toLowerCase();
 
   const performedAt =
     new Date();
@@ -116,27 +116,119 @@ function buildPerformedAt(
   const normalizedDate =
     String(dateText || "").trim();
 
-  const dateMatch =
+  const savedDateMatch =
     normalizedDate.match(
       /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/
     );
 
-  if (dateMatch) {
+  if (savedDateMatch) {
     performedAt.setFullYear(
-      Number(dateMatch[3]),
-      Number(dateMatch[2]) - 1,
-      Number(dateMatch[1])
+      Number(savedDateMatch[3]),
+      Number(savedDateMatch[2]) - 1,
+      Number(savedDateMatch[1])
     );
   }
 
-  performedAt.setHours(
-    Number(timeMatch[1]),
-    Number(timeMatch[2]),
-    0,
-    0
-  );
+  /*
+   * performed_time_text is optional in Dynamic Form V3.1.
+   * If no explicit value exists, use the current timestamp
+   * as the canonical performed_at used by Integration.
+   */
+  if (!normalizedTime) {
+    return performedAt.toISOString();
+  }
 
-  return performedAt.toISOString();
+  const inlineDateMatch =
+    normalizedTime.match(
+      /(?:^|\s)(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s|$)/
+    );
+
+  let hasRecognizedDate = false;
+
+  if (inlineDateMatch) {
+    performedAt.setFullYear(
+      Number(inlineDateMatch[3]),
+      Number(inlineDateMatch[2]) - 1,
+      Number(inlineDateMatch[1])
+    );
+
+    hasRecognizedDate = true;
+  } else if (
+    normalizedForMatch.includes(
+      "hom qua"
+    )
+  ) {
+    performedAt.setDate(
+      performedAt.getDate() - 1
+    );
+
+    hasRecognizedDate = true;
+  } else if (
+    normalizedForMatch.includes(
+      "hom nay"
+    )
+  ) {
+    hasRecognizedDate = true;
+  }
+
+  const clockMatch =
+    normalizedTime.match(
+      /(?:^|\s)([01]?\d|2[0-3]):([0-5]\d)(?:\s|$)/
+    );
+
+  const vietnameseClockMatch =
+    normalizedForMatch.match(
+      /(?:^|\s)([01]?\d|2[0-3])\s*gio(?:\s*(\d{1,2}))?(?:\s|$)/
+    );
+
+  if (clockMatch) {
+    performedAt.setHours(
+      Number(clockMatch[1]),
+      Number(clockMatch[2]),
+      0,
+      0
+    );
+
+    return performedAt.toISOString();
+  }
+
+  if (vietnameseClockMatch) {
+    const minute =
+      vietnameseClockMatch[2] ===
+        undefined
+        ? 0
+        : Number(
+            vietnameseClockMatch[2]
+          );
+
+    if (
+      minute < 0 ||
+      minute > 59
+    ) {
+      return null;
+    }
+
+    performedAt.setHours(
+      Number(
+        vietnameseClockMatch[1]
+      ),
+      minute,
+      0,
+      0
+    );
+
+    return performedAt.toISOString();
+  }
+
+  /*
+   * Date-only expressions such as "hom nay"
+   * use the current clock time on that date.
+   */
+  if (hasRecognizedDate) {
+    return performedAt.toISOString();
+  }
+
+  return null;
 }
 
 function validateDynamicOperationFields(
@@ -1049,16 +1141,6 @@ function VoiceLog({
     const errors = {};
     const warnings = {};
 
-    const lot =
-      String(
-        data?.lot || ""
-      ).trim();
-
-    const work =
-      String(
-        data?.work || ""
-      ).trim();
-
     /* ---------- Materials ---------- */
 
     const materials =
@@ -1165,49 +1247,6 @@ function VoiceLog({
         }
       }
     );
-    const time =
-      String(
-        data?.time || ""
-      ).trim();
-
-    /* ---------- Required ---------- */
-
-    if (!lot) {
-      errors.lot =
-        isVietnamese
-          ? "Chưa có thông tin lô canh tác."
-          : "Farm plot is required.";
-    }
-
-    if (!work) {
-      errors.work =
-        isVietnamese
-          ? "Chưa có thông tin công việc."
-          : "Farming task is required.";
-    }
-
-    /*
-     * Time được yêu cầu trước khi lưu Integration Service,
-     * vì performed_at không thể tạo nếu thiếu HH:mm.
-     * Do đó time phải là ERROR, không phải WARNING.
-     */
-    if (!time) {
-      errors.time =
-        isVietnamese
-          ? "Chưa có thời gian thực hiện."
-          : "Execution time is required.";
-    } else if (
-      !/^([01]?\d|2[0-3]):([0-5]\d)$/.test(
-        time
-      )
-    ) {
-      errors.time =
-        isVietnamese
-          ? "Thời gian phải đúng định dạng HH:mm. Ví dụ: 07:30."
-          : "Time must use HH:mm format, for example 07:30.";
-    }
-
-
     const hasErrors =
       Object.keys(
         errors
