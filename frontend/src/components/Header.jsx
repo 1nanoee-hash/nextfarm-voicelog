@@ -54,6 +54,13 @@ function Header({
   ] = useState(null);
 
   const [
+    profilePhotoURL,
+    setProfilePhotoURL,
+  ] = useState(
+    currentUser?.photoURL || ""
+  );
+
+  const [
     showLogoutConfirm,
     setShowLogoutConfirm,
   ] = useState(false);
@@ -164,6 +171,11 @@ function Header({
         displayName
       );
 
+      setProfilePhotoURL(
+        currentUser?.photoURL ||
+        ""
+      );
+
       setIsEditingProfile(
         false
       );
@@ -213,6 +225,53 @@ function Header({
   const isVietnamese =
     language === "vi";
 
+  const profileEmail =
+    String(
+      currentUser?.email || ""
+    ).trim();
+
+  const currentProfilePhotoURL =
+    String(
+      currentUser?.photoURL || ""
+    ).trim();
+
+  const profileProvider =
+    String(
+      currentUser?.provider ||
+      "password"
+    )
+      .trim()
+      .toLowerCase();
+
+  const providerName =
+    {
+      google: "Google",
+      facebook: "Facebook",
+      microsoft: "Microsoft",
+      password:
+        isVietnamese
+          ? "Email / mật khẩu"
+          : "Email / password",
+    }[profileProvider] ||
+    profileProvider ||
+    (
+      isVietnamese
+        ? "Tài khoản NextFarm"
+        : "NextFarm account"
+    );
+
+  const avatarContent =
+    currentProfilePhotoURL ? (
+      <img
+        className="account-avatar-image"
+        src={currentProfilePhotoURL}
+        alt={displayName}
+        referrerPolicy="no-referrer"
+      />
+    ) : (
+      "👤"
+    );
+
   const accountCopy =
     isVietnamese
       ? {
@@ -234,6 +293,10 @@ function Header({
             "Thông tin cá nhân",
           fullName:
             "Họ và tên",
+          emailLabel:
+            "Email",
+          providerLabel:
+            "Nhà cung cấp",
           roleLabel:
             "Vai trò",
           languageLabel:
@@ -308,6 +371,10 @@ function Header({
             "Personal information",
           fullName:
             "Full name",
+          emailLabel:
+            "Email",
+          providerLabel:
+            "Provider",
           roleLabel:
             "Role",
           languageLabel:
@@ -364,6 +431,110 @@ function Header({
             "Profile updated successfully.",
         };
 
+  const handleAvatarChange = (
+    event
+  ) => {
+    const file =
+      event.target.files?.[0];
+
+    event.target.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    if (
+      !file.type.startsWith(
+        "image/"
+      )
+    ) {
+      setProfileFeedback({
+        type: "error",
+        text:
+          isVietnamese
+            ? "Vui lòng chọn một tệp ảnh."
+            : "Please select an image file.",
+      });
+
+      return;
+    }
+
+    const reader =
+      new FileReader();
+
+    reader.onload = () => {
+      const image =
+        new Image();
+
+      image.onload = () => {
+        const size = 256;
+
+        const canvas =
+          document.createElement(
+            "canvas"
+          );
+
+        canvas.width = size;
+        canvas.height = size;
+
+        const context =
+          canvas.getContext("2d");
+
+        const sourceSize =
+          Math.min(
+            image.width,
+            image.height
+          );
+
+        const sourceX =
+          (
+            image.width -
+            sourceSize
+          ) / 2;
+
+        const sourceY =
+          (
+            image.height -
+            sourceSize
+          ) / 2;
+
+        context.drawImage(
+          image,
+          sourceX,
+          sourceY,
+          sourceSize,
+          sourceSize,
+          0,
+          0,
+          size,
+          size
+        );
+
+        const resized =
+          canvas.toDataURL(
+            "image/jpeg",
+            0.86
+          );
+
+        setProfilePhotoURL(
+          resized
+        );
+
+        setProfileFeedback(
+          null
+        );
+      };
+
+      image.src =
+        reader.result;
+    };
+
+    reader.readAsDataURL(
+      file
+    );
+  };
+
+
   const handleSaveProfile = () => {
     const nextName =
       profileName.trim();
@@ -383,6 +554,9 @@ function Header({
       const updated =
         onProfileUpdate?.({
           name: nextName,
+          photoURL:
+            profilePhotoURL ||
+            null,
         });
 
       setProfileName(
@@ -645,7 +819,7 @@ function Header({
               aria-haspopup="menu"
             >
               <span className="user-icon">
-                👤
+                {avatarContent}
               </span>
 
               <span className="user-greeting">
@@ -674,7 +848,7 @@ function Header({
               >
                 <div className="user-menu-header">
                   <div className="user-menu-avatar">
-                    👤
+                    {avatarContent}
                   </div>
 
                   <div>
@@ -684,6 +858,7 @@ function Header({
 
                     <span>
                       {
+                        profileEmail ||
                         text.header
                           .account
                       }
@@ -847,7 +1022,22 @@ function Header({
               <div className="account-panel-content">
                 <div className="profile-hero-card">
                   <div className="profile-large-avatar">
-                    👤
+                    {
+                      profilePhotoURL ? (
+                        <img
+                          className="account-avatar-image"
+                          src={
+                            profilePhotoURL
+                          }
+                          alt={
+                            displayName
+                          }
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        "👤"
+                      )
+                    }
                   </div>
 
                   <div>
@@ -856,6 +1046,7 @@ function Header({
                     </h3>
                     <p>
                       {
+                        profileEmail ||
                         accountCopy.account
                       }
                     </p>
@@ -903,6 +1094,32 @@ function Header({
                       </strong>
                     )}
                   </div>
+                  {profileEmail && (
+                    <div>
+                      <span>
+                        {
+                          accountCopy.emailLabel
+                        }
+                      </span>
+
+                      <strong>
+                        {profileEmail}
+                      </strong>
+                    </div>
+                  )}
+
+                  <div>
+                    <span>
+                      {
+                        accountCopy.providerLabel
+                      }
+                    </span>
+
+                    <strong>
+                      {providerName}
+                    </strong>
+                  </div>
+
                   <div>
                     <span>
                       {
@@ -929,6 +1146,29 @@ function Header({
                   </div>
                 </div>
 
+                {isEditingProfile && (
+                  <div className="profile-avatar-editor">
+                    <label className="profile-avatar-upload">
+                      <span>📷</span>
+                      <span>
+                        {
+                          isVietnamese
+                            ? "Đổi ảnh đại diện"
+                            : "Change avatar"
+                        }
+                      </span>
+
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={
+                          handleAvatarChange
+                        }
+                      />
+                    </label>
+                  </div>
+                )}
+
                 <div className="profile-edit-actions">
                   {isEditingProfile ? (
                     <>
@@ -938,6 +1178,11 @@ function Header({
                         onClick={() => {
                           setProfileName(
                             displayName
+                          );
+
+                          setProfilePhotoURL(
+                            currentUser?.photoURL ||
+                            ""
                           );
 
                           setIsEditingProfile(
@@ -975,6 +1220,11 @@ function Header({
                       onClick={() => {
                         setProfileName(
                           displayName
+                        );
+
+                        setProfilePhotoURL(
+                          currentUser?.photoURL ||
+                          ""
                         );
 
                         setProfileFeedback(

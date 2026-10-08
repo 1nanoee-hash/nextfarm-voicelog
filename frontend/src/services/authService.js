@@ -1,8 +1,22 @@
-﻿const SESSION_KEY =
+import {
+  signInWithPopup,
+  signOut,
+} from "firebase/auth";
+
+import {
+  auth,
+  googleProvider,
+  facebookProvider,
+} from "../config/firebase";
+
+const SESSION_KEY =
   "nextfarm-auth-session";
 
 const USERS_KEY =
   "nextfarm-demo-users";
+
+const PROFILE_OVERRIDES_KEY =
+  "nextfarm-profile-overrides";
 
 
 function readJson(
@@ -67,16 +81,49 @@ function createId() {
 }
 
 
+function getProfileKey(
+  user
+) {
+  const provider =
+    user?.provider ||
+    "password";
+
+  const identity =
+    user?.id ||
+    user?.email ||
+    "unknown";
+
+  return `${provider}:${identity}`;
+}
+
+
 function saveSession(
   user
 ) {
+  const profileOverrides =
+    readJson(
+      PROFILE_OVERRIDES_KEY,
+      {}
+    );
+
+  const override =
+    profileOverrides[
+      getProfileKey(user)
+    ] || {};
+
   const session = {
     id: user.id,
-    name: user.name,
+    name:
+      override.name ||
+      user.name,
     email: user.email,
     provider:
       user.provider ||
       "password",
+    photoURL:
+      override.photoURL ||
+      user.photoURL ||
+      null,
   };
 
   writeJson(
@@ -100,6 +147,11 @@ export function logoutDemo() {
   localStorage.removeItem(
     SESSION_KEY
   );
+
+  signOut(auth).catch(() => {
+    // Local session đã được xóa.
+    // Firebase sign-out lỗi không được chặn logout UI.
+  });
 }
 
 
@@ -207,6 +259,162 @@ export async function loginDemo({
 }
 
 
+
+
+export async function loginWithFacebook() {
+  try {
+    const result =
+      await signInWithPopup(
+        auth,
+        facebookProvider
+      );
+
+    const firebaseUser =
+      result.user;
+
+    return saveSession({
+      id:
+        firebaseUser.uid,
+      name:
+        firebaseUser.displayName ||
+        firebaseUser.email
+          ?.split("@")[0] ||
+        "Facebook User",
+      email:
+        firebaseUser.email ||
+        "",
+      provider:
+        "facebook",
+      photoURL:
+        firebaseUser.photoURL ||
+        null,
+    });
+  } catch (error) {
+    const code =
+      error?.code || "";
+
+    if (
+      code ===
+      "auth/popup-closed-by-user"
+    ) {
+      throw new Error(
+        "Bạn đã đóng cửa sổ đăng nhập Facebook.",
+        { cause: error }
+      );
+    }
+
+    if (
+      code ===
+      "auth/popup-blocked"
+    ) {
+      throw new Error(
+        "Trình duyệt đã chặn cửa sổ đăng nhập Facebook. Hãy cho phép popup rồi thử lại.",
+        { cause: error }
+      );
+    }
+
+    if (
+      code ===
+      "auth/account-exists-with-different-credential"
+    ) {
+      throw new Error(
+        "Email này đã được sử dụng với một phương thức đăng nhập khác. Hãy đăng nhập bằng phương thức đã dùng trước đó.",
+        { cause: error }
+      );
+    }
+
+    if (
+      code ===
+      "auth/unauthorized-domain"
+    ) {
+      throw new Error(
+        "Tên miền hiện tại chưa được cho phép trong Firebase Authentication.",
+        { cause: error }
+      );
+    }
+
+    throw error;
+  }
+}
+
+
+export async function loginWithGoogle() {
+  try {
+    const result =
+      await signInWithPopup(
+        auth,
+        googleProvider
+      );
+
+    const firebaseUser =
+      result.user;
+
+    return saveSession({
+      id:
+        firebaseUser.uid,
+      name:
+        firebaseUser.displayName ||
+        firebaseUser.email
+          ?.split("@")[0] ||
+        "Google User",
+      email:
+        firebaseUser.email ||
+        "",
+      provider:
+        "google",
+      photoURL:
+        firebaseUser.photoURL ||
+        null,
+    });
+  } catch (error) {
+    const code =
+      error?.code || "";
+
+    if (
+      code ===
+      "auth/popup-closed-by-user"
+    ) {
+      throw new Error(
+        "Bạn đã đóng cửa sổ đăng nhập Google.",
+        { cause: error }
+      );
+    }
+
+    if (
+      code ===
+      "auth/popup-blocked"
+    ) {
+      throw new Error(
+        "Trình duyệt đã chặn cửa sổ đăng nhập Google. Hãy cho phép popup rồi thử lại.",
+        { cause: error }
+      );
+    }
+
+    if (
+      code ===
+      "auth/unauthorized-domain"
+    ) {
+      throw new Error(
+        "Tên miền hiện tại chưa được cho phép trong Firebase Authentication.",
+        { cause: error }
+      );
+    }
+
+    if (
+      code ===
+      "auth/cancelled-popup-request"
+    ) {
+      throw new Error(
+        "Yêu cầu đăng nhập Google trước đó đã bị hủy.",
+        { cause: error }
+      );
+    }
+
+    throw error;
+  }
+}
+
+
 export function socialLoginDemo(
   provider
 ) {
@@ -254,6 +462,7 @@ export function socialLoginDemo(
 
 export function updateProfileDemo({
   name,
+  photoURL,
 }) {
   const session =
     getAuthSession();
@@ -277,11 +486,36 @@ export function updateProfileDemo({
   const nextSession = {
     ...session,
     name: normalizedName,
+    photoURL:
+      photoURL !== undefined
+        ? photoURL
+        : session.photoURL,
   };
 
   writeJson(
     SESSION_KEY,
     nextSession
+  );
+
+  const profileOverrides =
+    readJson(
+      PROFILE_OVERRIDES_KEY,
+      {}
+    );
+
+  profileOverrides[
+    getProfileKey(session)
+  ] = {
+    name:
+      nextSession.name,
+    photoURL:
+      nextSession.photoURL ||
+      null,
+  };
+
+  writeJson(
+    PROFILE_OVERRIDES_KEY,
+    profileOverrides
   );
 
   const users =
@@ -307,6 +541,9 @@ export function updateProfileDemo({
     nextUsers[userIndex] = {
       ...nextUsers[userIndex],
       name: normalizedName,
+      photoURL:
+        nextSession.photoURL ||
+        null,
     };
 
     writeJson(

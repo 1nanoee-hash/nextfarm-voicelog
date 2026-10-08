@@ -4,6 +4,8 @@
 
 import {
   loginDemo,
+  loginWithGoogle,
+  loginWithFacebook,
   registerDemo,
 } from "../services/authService";
 
@@ -111,7 +113,7 @@ function AuthPage({
           hasAccount:
             "Đã có tài khoản?",
           demo:
-            "Google, Facebook và Microsoft hiện đang ở chế độ demo giao diện.",
+            "Google và Facebook đã hỗ trợ đăng nhập thật. Microsoft đang được cấu hình OAuth.",
         }
       : {
           title:
@@ -147,7 +149,7 @@ function AuthPage({
           hasAccount:
             "Already have an account?",
           demo:
-            "Google, Facebook and Microsoft OAuth sign-in is being configured.",
+            "Google and Facebook sign-in are enabled. Microsoft OAuth is being configured.",
         };
 
 
@@ -264,23 +266,49 @@ function AuthPage({
     };
 
 
-  const handleSocialLogin = (
-    provider
-  ) => {
-    const providerName =
-      SOCIAL_PROVIDERS.find(
-        (item) =>
-          item.id === provider
-      )?.label || provider;
+  const handleSocialLogin =
+    async (provider) => {
+      if (
+        provider === "microsoft"
+      ) {
+        setMessage({
+          type: "info",
+          text:
+            language === "vi"
+              ? "Microsoft OAuth đang được cấu hình."
+              : "Microsoft OAuth sign-in is being configured.",
+        });
 
-    setMessage({
-      type: "info",
-      text:
-        language === "vi"
-          ? `\u0110\u0103ng nh\u1eadp ${providerName} \u0111ang \u0111\u01b0\u1ee3c c\u1ea5u h\u00ecnh OAuth.`
-          : `${providerName} OAuth sign-in is being configured.`,
-    });
-  };
+        return;
+      }
+
+      setLoading(true);
+      setMessage(null);
+
+      try {
+        const session =
+          provider === "facebook"
+            ? await loginWithFacebook()
+            : await loginWithGoogle();
+
+        onAuthenticated(
+          session
+        );
+      } catch (error) {
+        setMessage({
+          type: "error",
+          text:
+            error?.message ||
+            (
+              language === "vi"
+                ? "Không thể đăng nhập bằng Google."
+                : "Unable to sign in with Google."
+            ),
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
 
   return (
     <main className="auth-page">
